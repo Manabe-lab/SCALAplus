@@ -1,0 +1,73 @@
+# Large helper files (download separately)
+scenic_helper_files/
+nichenetr_helper_files/
+db/
+ArchRGenome/
+.git_backup/
+
+# Backup copies - use git history instead
+*copy*.R
+*copy*.py
+*(copy)*.R
+*.bak
+*.backup
+*.old
+*~
+server9-10.R
+server10-23.R
+server.R.org
+server.R.2-28
+server.R.3-1
+server.R1-19
+server.R2
+server.RRRRRR
+v4用最終バージョン/
+global_SCTが動かないv5対応.R
+コード修正.R
+server-splitからマージはうまく動かない.R
+SCALAのtool.txt
+SCALA用のRインストール.txt
+
+# Jupyter/Project files
+*.ipynb
+*.Rproj
+SESSION_LOG*.md
+
+# R session files
+.Rhistory
+.RData
+.Rproj.user/
+
+# Large data files
+*.qs
+*.rds
+*.tar.gz
+*.zip
+*.csv
+*.tsv
+*.h5ad
+seurat_temp.qs
+temp.csv
+
+# Temporary files
+temp/
+usr_temp/
+session/
+output/
+dask-worker-space/
+
+# Checkpoint files
+ckpt.tar.gz
+
+# Notebook files
+*.ipynb_checkpoints/
+.ipynb_checkpoints/
+*.nbconvert.*
+
+# System files
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
