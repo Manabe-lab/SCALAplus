@@ -1,7 +1,14 @@
-# SCALA
+# SCALAplus
 
-A web application for multimodal analysis of single cell next generation sequencing data
+A modified and extended version of [SCALA](https://github.com/scBONITA/SCALA) for multimodal analysis of single cell next generation sequencing data.
 
+## About This Version
+
+SCALAplus is based on the original SCALA developed by the teams at Biomedical Sciences Research Center "Alexander Fleming". This version includes additional features and improvements.
+
+If you use SCALAplus, please cite the original SCALA paper:
+
+> Tzaferis C., Karatzas E., Baltoumas F.A., Pavlopoulos G.A., Kollias G., Konstantopoulos D. (2022) **SCALA: A web application for multimodal analysis of single cell next generation sequencing data.** *bioRxiv 2022.11.24.517826*; doi: [https://doi.org/10.1101/2022.11.24.517826](https://doi.org/10.1101/2022.11.24.517826)
 
 ----
 
@@ -23,9 +30,9 @@ A web application for multimodal analysis of single cell next generation sequenc
 
 ----
 ## Overview
-A web tool that handles the analysis of scRNAseq data, from quality control and normalization, to dimensionality reduction, differential expression analysis, clustering and visualization.
+A web tool that handles the analysis of scRNA-seq and scATAC-seq data, from quality control and normalization, to dimensionality reduction, differential expression analysis, clustering and visualization.
 
-Online version: http://scala.pavlopouloslab.info
+Original SCALA online version: http://scala.pavlopouloslab.info
 
 
 ----
