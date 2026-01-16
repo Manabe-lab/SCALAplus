@@ -345,6 +345,25 @@ ui <- dashboardPage(
                                        checkboxInput("h5adXtoCounts", strong("Load X as counts"), FALSE),
 
                                        tags$hr(),
+                                       # ============================================================
+                                       # COMPASS metabolic analysis data
+                                       # COMPASSデータの読み込みについて
+                                       # ============================================================
+                                       tags$h4(tags$strong("COMPASS metabolic analysis data")),
+                                       tags$div(
+                                         style = "background-color: #f0f7ff; padding: 10px; border-radius: 5px; margin-bottom: 10px;",
+                                         tags$p(tags$strong("metisでCOMPASS解析を行った場合:")),
+                                         tags$ul(
+                                           tags$li("COMPASS h5adファイルを通常のh5adとして読み込み可能"),
+                                           tags$li("反応(reactions)が「遺伝子」として扱われる"),
+                                           tags$li("COMPASSスコアはdata slotに格納される"),
+                                           tags$li(tags$strong("「Load X as counts」はチェックしない"), "（スコアは正規化済み）"),
+                                           tags$li("FeaturePlot, VlnPlot, FindMarkers等で解析可能")
+                                         ),
+                                         tags$p(tags$small("Reference: Wagner et al. (2021) Cell"))
+                                       ),
+
+                                       tags$hr(),
                                        tags$h3("Convert gene names"),
                                        tags$h5("If gene rownames are Ensembl IDs (ENSMUSG...), convert them to gene symbols."),
                                        selectInput("h5adGeneNameColumn", "Select gene name column from meta.features:",
@@ -2030,11 +2049,11 @@ tabsetPanel(
                   selectInput("normalizeRegressColumns", "Select variables to regress out (ex, percent.mt)", list(), selected = NULL, multiple = TRUE, selectize = TRUE, width = NULL, size = NULL),
                     tags$h5("Should add percent.mt for SCT"),
 
-                  actionButton(inputId = "normalizeConfirm", label = "Run normalization & scaling",class = "btn btn-warning"),
-                  tags$br(),
                   checkboxInput("ScaleIndividual", label= "Scale data within each sample individually for merged data. Do not uncheck this option unless you want to scale data in whole merged data.", value = TRUE, width = NULL),
-                selectInput(inputId = "BatchIdent2", label = "Choose identity for samples:",
+                  selectInput(inputId = "BatchIdent2", label = "Choose identity for samples:",
                                           c("Cluster" = "orig.ident")),
+                  tags$br(),
+                  actionButton(inputId = "normalizeConfirm", label = "Run normalization & scaling",class = "btn btn-warning"),
                   tags$br(),
                   tags$br(),
 
