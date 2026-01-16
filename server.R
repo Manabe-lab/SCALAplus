@@ -250,7 +250,10 @@ initializeAfterDataLoad <- function(organism = "mouse") {
     
     print('updateGeneSearchFP')
     updateGeneSearchFP()
-    
+
+    print('updateGeneNameColumnSelect')
+    updateGeneNameColumnSelect()
+
     print('updateQC_choices')
     updateQC_choices()
     
@@ -266,14 +269,28 @@ initializeAfterDataLoad <- function(organism = "mouse") {
     updateUmapTypeChoices()
 
     # Update gene name column choices from meta.features
+    # Assay5では@meta.data、Assay(v4)では@meta.featuresを使用
     print('updateGeneNameColumn')
     tryCatch({
-      if (!is.null(seurat_object@assays[[DefaultAssay(seurat_object)]]@meta.features) &&
-          ncol(seurat_object@assays[[DefaultAssay(seurat_object)]]@meta.features) > 0) {
-        meta_feature_cols <- colnames(seurat_object@assays[[DefaultAssay(seurat_object)]]@meta.features)
+      assay_obj <- seurat_object@assays[[DefaultAssay(seurat_object)]]
+      meta_feature_cols <- NULL
+
+      if (inherits(assay_obj, "Assay5")) {
+        # Assay5: use @meta.data slot
+        if (!is.null(assay_obj@meta.data) && ncol(assay_obj@meta.data) > 0) {
+          meta_feature_cols <- colnames(assay_obj@meta.data)
+        }
+      } else {
+        # Assay (v4): use @meta.features slot
+        if (!is.null(assay_obj@meta.features) && ncol(assay_obj@meta.features) > 0) {
+          meta_feature_cols <- colnames(assay_obj@meta.features)
+        }
+      }
+
+      if (!is.null(meta_feature_cols) && length(meta_feature_cols) > 0) {
         updateSelectInput(session, "h5adGeneNameColumn",
                           choices = c("-" = "none", meta_feature_cols))
-        print(paste("Found", length(meta_feature_cols), "gene annotation columns"))
+        print(paste("Found", length(meta_feature_cols), "gene annotation columns:", paste(meta_feature_cols, collapse = ", ")))
       }
     }, error = function(e) {
       print(paste("Error updating gene name columns:", e))
@@ -2449,6 +2466,97 @@ meta_data <-  names(seurat_object@meta.data)
 
 
 #追加=========Anndata=============
+
+  # H5AD Structure Help Modal
+  observeEvent(input$h5adStructureHelp, {
+    showModal(modalDialog(
+      title = "H5ADファイル構造オプションについて",
+      tags$div(
+        tags$h4("h5adファイルのデータ構造"),
+        tags$p("h5ad (AnnData) ファイルには複数の場所にデータが格納されている可能性があります："),
+        tags$ul(
+          tags$li(tags$strong("adata.X"), " - メインのデータマトリックス（カウントまたは正規化済みデータ）"),
+          tags$li(tags$strong("adata.raw.X"), " - 生のカウントデータ（存在する場合）"),
+          tags$li(tags$strong("adata.layers['counts']"), " - カウントデータ（layersに格納されている場合）")
+        ),
+        tags$hr(),
+        tags$h4("オプションの説明"),
+        tags$h5(tags$strong("Load X as counts")),
+        tags$p("h5adファイルの読み込み方法を選択します："),
+        tags$ul(
+          tags$li(tags$strong("チェックなし（デフォルト）:"),
+            tags$ul(
+              tags$li("adata.X → ", tags$strong("data"), " スロット"),
+              tags$li("adata.layers['counts'] が存在 → ", tags$strong("counts"), " スロット"),
+              tags$li("layers['counts']がなく、adata.raw.X が存在 → ", tags$strong("counts"), " スロット"),
+              tags$li("どちらもない場合 → counts は ", tags$strong("空"), "（dataのみ）")
+            )
+          ),
+          tags$li(tags$strong("チェックあり:"),
+            tags$ul(
+              tags$li("adata.X → ", tags$strong("counts"), " スロット（dataはcountsのコピー）"),
+              tags$li("正規化前のカウントデータがXに格納されているファイルで使用")
+            )
+          )
+        ),
+        tags$hr(),
+        tags$h4("データ変換のまとめ"),
+        tags$table(class = "table table-bordered table-sm",
+          tags$thead(
+            tags$tr(
+              tags$th("Load X as counts"),
+              tags$th("layers['counts']"),
+              tags$th("raw.X"),
+              tags$th("counts スロット"),
+              tags$th("data スロット")
+            )
+          ),
+          tags$tbody(
+            tags$tr(
+              tags$td("ON"),
+              tags$td("-"),
+              tags$td("-"),
+              tags$td(tags$strong("X")),
+              tags$td("X (コピー)")
+            ),
+            tags$tr(
+              tags$td("OFF"),
+              tags$td("あり"),
+              tags$td("-"),
+              tags$td(tags$strong("layers['counts']")),
+              tags$td("X")
+            ),
+            tags$tr(
+              tags$td("OFF"),
+              tags$td("なし"),
+              tags$td("あり"),
+              tags$td(tags$strong("raw.X")),
+              tags$td("X")
+            ),
+            tags$tr(
+              tags$td("OFF"),
+              tags$td("なし"),
+              tags$td("なし"),
+              tags$td(tags$em("NULL")),
+              tags$td("X")
+            )
+          )
+        ),
+        tags$hr(),
+        tags$h4("推奨設定"),
+        tags$ul(
+          tags$li(tags$strong("Scanpyで解析済みのファイル:"), " デフォルト（チェックなし）で読み込み。",
+                  "通常、layers['counts']またはraw.Xにカウントデータが保存されています。"),
+          tags$li(tags$strong("カウントのみのファイル:"), " 「Load X as counts」をチェック。"),
+          tags$li(tags$strong("正規化済みデータのみ:"), " デフォルトで読み込み（countsはNULLになります）。")
+        )
+      ),
+      easyClose = TRUE,
+      footer = modalButton("閉じる"),
+      size = "l"
+    ))
+  })
+
   observeEvent(c(input$uploadSeuratAnndataConfirm, input$uploadLocalAnndataConfirm), {
        if (!is.null(input$uploadSeuratAnndataConfirm) & !is.null(input$uploadLocalAnndataConfirm)) {
       if (input$uploadSeuratAnndataConfirm >0 | input$uploadLocalAnndataConfirm > 0) {
@@ -2470,7 +2578,7 @@ meta_data <-  names(seurat_object@meta.data)
                     showNotification("Uploading from your PC.")
           withProgress(message = 'This may take several minutes',{
   #        sceasy::convertFormat(input$uploadAnndataFile$datapath, from="anndata", main_layer = input$slotinh5ad, to="seurat", outFile='temp.RDS')
-  anndata2seurat(input$uploadAnndataFile$datapath,  main_layer = input$slotinh5ad,  outFile='temp.RDS')
+  anndata2seurat(input$uploadAnndataFile$datapath, main_layer = input$slotinh5ad, outFile='temp.RDS', x_to_counts = input$h5adXtoCounts)
           })
           uploadSeuratAnndataConfirmCount <<- input$uploadSeuratAnndataConfirm
         } else {
@@ -2481,12 +2589,21 @@ meta_data <-  names(seurat_object@meta.data)
           withProgress(message = 'This may take several minutes',{
             #sceasy::convertFormat(as.character(file_selected$datapath), from="anndata", to="seurat",
            #   main_layer = input$slotinh5ad, outFile='temp.RDS')
-             anndata2seurat(as.character(file_selected$datapath), main_layer = input$slotinh5ad, outFile='temp.RDS') # _から-への変換でdupliatesができることへの対応で関数を修正した
+             anndata2seurat(as.character(file_selected$datapath), main_layer = input$slotinh5ad, outFile='temp.RDS', x_to_counts = input$h5adXtoCounts) # _から-への変換でdupliatesができることへの対応で関数を修正した
           })
           } else  {return()}
         }
 
         seurat_object <<- readRDS('temp.RDS')
+
+        # Warning if X was loaded as counts
+        if (input$h5adXtoCounts) {
+          showNotification(
+            HTML("現在 data slot には counts と同じデータが入っています。<br>解析を進める前に <b>NormalizeData</b> を実行してください。"),
+            type = "warning",
+            duration = 30
+          )
+        }
 
         print("checking levels.")
 
@@ -2503,36 +2620,11 @@ meta_data <-  names(seurat_object@meta.data)
         }
 
 
-tryCatch({
-if (is_assay5(seurat_object)){
-if (length(seurat_object[[DefaultAssay(seurat_object)]]$counts) == length(seurat_object[[DefaultAssay(seurat_object)]]$data) ){
-        if (is_sparse_matrix_contains_decimal(seurat_object@assays[[DefaultAssay(seurat_object)]]$counts, threshold = 0.1)){
-    #      if (sum(seurat_object[[DefaultAssay(seurat_object)]]$counts[1:10,1:100]) == sum(seurat_object[[DefaultAssay(seurat_object)]]$data[1:10,1:100])){
-
-        if (input$h5addecimal) {
-          showNotification("カウントデータが小数を含みます。normalized dataに置き換わっている可能性が高いため、再検討を。", type='error', duration = 60)
-        } else {
-          seurat_object[[DefaultAssay(seurat_object)]]$counts <<- matrix(NA, nrow=0, ncol=0)
-          showNotification("カウントデータが小数を含み、normalized dataに置き換わっている可能性が高いため、カウントデータを削除します。", type='error', duration = 60)
-        showNotification("小数を含むデータの場合は、Counts include decimalをチェックして再度ロードしてください。", type='error', duration = 120)
-        }
-        }}
-  } else {
-        # counts = dataのときにcountsを削除
-        if (length(seurat_object[[DefaultAssay(seurat_object)]]$counts) == length(seurat_object[[DefaultAssay(seurat_object)]]$data) ){
-	        if (is_sparse_matrix_contains_decimal(seurat_object@assays[[DefaultAssay(seurat_object)]]$counts, threshold = 0.1)){
-         if (input$h5addecimal) {
-          showNotification("カウントデータが小数を含みます。normalized dataに置き換わっている可能性が高いため、再検討を。", type='error', duration = 60)
-        } else {
-           seurat_object[[DefaultAssay(seurat_object)]]$counts <<- matrix(NA, nrow=0, ncol=0)
-        showNotification("カウントデータが小数を含み、normalized dataに置き換わっている可能性が高いため、カウントデータを削除します。", type='error', duration = 60)
-        showNotification("小数を含むデータの場合は、Counts include decimalをチェックして再度ロードしてください。", type='error', duration = 120)
-          }}
-        }
-  }
-}, error = function(e) {
-    print(paste("Error :  ", e))
-    })
+# Note: Decimal check is no longer needed
+# New logic in anndata2seurat:
+# - x_to_counts ON:  X -> counts (user explicitly wants this)
+# - x_to_counts OFF: X -> data only, counts from layers['counts'] or raw.X
+# This means counts always come from a valid source or are NULL
 
         updateMetadata()
         updateSelInpColor()
@@ -2579,6 +2671,7 @@ if (length(seurat_object[[DefaultAssay(seurat_object)]]$counts) == length(seurat
           print('updatesetinpcolor')
           updateSelInpColor()
           updateGeneSearchFP()
+          updateGeneNameColumnSelect()
           updateQC_choices()
           updateMaxHVGs()
           print('maxhvgs')
@@ -2860,97 +2953,155 @@ meta_data <-  names(seurat_object@meta.data)
 
       message("\n=== Starting Gene Name Conversion ===")
 
+      # Get meta.features using helper function (works with both v4 and v5)
+      current_meta_features <- get_meta_features(seurat_object, assay_name)
+
       # Get selected column from meta.features
-      if (!selected_column %in% colnames(seurat_object@assays[[assay_name]]@meta.features)) {
+      if (!selected_column %in% colnames(current_meta_features)) {
         showNotification(paste("Column", selected_column, "not found in meta.features"), type = 'error')
         return()
       }
 
       # Step 1: Save original gene names (current rownames)
-      original_gene_names <- rownames(seurat_object@assays[[assay_name]]@meta.features)
+      original_gene_names <- rownames(current_meta_features)
       message(paste("Step 1: Saved original gene names (", length(original_gene_names), " genes)"))
       message(paste("  First 5 original names:", paste(head(original_gene_names, 5), collapse = ", ")))
 
       # Step 2: Get gene symbols from selected column
-      gene_symbols <- as.character(seurat_object@assays[[assay_name]]@meta.features[[selected_column]])
+      gene_symbols <- as.character(current_meta_features[[selected_column]])
       message(paste("Step 2: Retrieved gene symbols from column '", selected_column, "'"))
       message(paste("  First 5 gene symbols:", paste(head(gene_symbols, 5), collapse = ", ")))
 
-      # Step 3: Check for duplicates and add suffixes
-      num_duplicates <- sum(duplicated(gene_symbols))
-      message(paste("Step 3: Found", num_duplicates, "duplicate gene symbols"))
+      # Step 3: Convert underscores to dots to avoid Seurat's _ to - conversion
+      # (Seurat converts _ to - during NormalizeData, which can cause collisions with genes containing -)
+      gene_symbols_dot <- str_replace_all(gene_symbols, '_', '.')
+
+      # Check for duplicates after conversion
+      num_duplicates <- sum(duplicated(gene_symbols_dot))
+      message(paste("Step 3: Found", num_duplicates, "duplicate gene symbols (after _ to . conversion)"))
 
       if (num_duplicates > 0) {
-        gene_symbols_mod <- make.unique(gene_symbols, sep = "_")
-        message(paste("  Added suffixes to duplicates"))
-        message(paste("  Example duplicates:", paste(head(gene_symbols_mod[gene_symbols != gene_symbols_mod], 5), collapse = ", ")))
+        gene_symbols_rownames <- make.unique(gene_symbols_dot, sep = ".")
+        message("  Added .1, .2 suffixes to duplicates using make.unique()")
+
+        # Show notification with modified gene names
+        modified_idx <- which(gene_symbols_dot != gene_symbols_rownames)
+        modified_genes <- gene_symbols_rownames[modified_idx]
+        if (length(modified_genes) > 20) {
+          display_genes <- c(head(modified_genes, 20), paste("... and", length(modified_genes) - 20, "more"))
+        } else {
+          display_genes <- modified_genes
+        }
+        showNotification(
+          HTML(paste0(
+            "<b>Gene Name Conversion: ", length(modified_genes), " genes renamed due to duplicates</b><br>",
+            "<small>(make.unique applied, .1, .2 etc. added)</small><br><br>",
+            paste(display_genes, collapse = "<br>")
+          )),
+          type = "warning",
+          duration = 60
+        )
+        message(paste("  Example:", paste(head(modified_genes, 3), collapse = ", ")))
       } else {
-        gene_symbols_mod <- gene_symbols
-        message("  No duplicates found, no suffixes needed")
+        gene_symbols_rownames <- gene_symbols_dot
+        message("  No duplicates found")
       }
+      message(paste("  Rownames sample:", paste(head(gene_symbols_rownames, 3), collapse = ", ")))
 
-      # Step 4: Clean and add metadata columns to meta.features
-      message("Step 4: Adding metadata columns to meta.features")
+      # Step 4: Update rownames and meta.features
+      message("Step 4: Updating rownames and meta.features")
 
-      # Remove ALL existing columns from meta.features to avoid conflicts
-      seurat_object@assays[[assay_name]]@meta.features <<- data.frame(row.names = rownames(seurat_object@assays[[assay_name]]@meta.features))
+      if (is_assay5(seurat_object, assay_name)) {
+        # Assay5: Convert to Assay v4, rename, convert back to Assay5
+        message("  Assay5 detected - converting to Assay v4 for renaming")
 
-      # Add only our three new columns
-      seurat_object@assays[[assay_name]]@meta.features$orig.gene.symbol <<- original_gene_names
-      seurat_object@assays[[assay_name]]@meta.features$gene.symbol <<- gene_symbols
-      seurat_object@assays[[assay_name]]@meta.features$gene.symbol.mod <<- gene_symbols_mod
-      message("  Cleared old columns and added: orig.gene.symbol, gene.symbol, gene.symbol.mod")
+        tryCatch({
+          # Convert Assay5 to Assay v4
+          assay5_obj <- seurat_object[[assay_name]]
+          assay4_obj <- as(assay5_obj, "Assay")
+          message("  Converted to Assay v4")
 
-      # Step 5: Update rownames for all matrices to gene.symbol.mod
-      message("Step 5: Updating rownames of all data matrices to gene.symbol.mod")
-      if (is_assay5(seurat_object)) {
-        # Seurat v5
-        if (length(seurat_object[[assay_name]]$counts) > 0) {
-          rownames(seurat_object[[assay_name]]$counts) <<- gene_symbols_mod
-          message("  Updated counts matrix rownames")
-        }
-        if (length(seurat_object[[assay_name]]$data) > 0) {
-          rownames(seurat_object[[assay_name]]$data) <<- gene_symbols_mod
-          message("  Updated data matrix rownames")
-        }
-        if (length(seurat_object[[assay_name]]$scale.data) > 0) {
-          rownames(seurat_object[[assay_name]]$scale.data) <<- gene_symbols_mod
-          message("  Updated scale.data matrix rownames")
-        }
+          # Update rownames in Assay v4 slots (use "-" version for Seurat compatibility)
+          if (nrow(assay4_obj@counts) > 0) {
+            rownames(assay4_obj@counts) <- gene_symbols_rownames
+            message("  Updated counts rownames")
+          }
+          if (nrow(assay4_obj@data) > 0) {
+            rownames(assay4_obj@data) <- gene_symbols_rownames
+            message("  Updated data rownames")
+          }
+          if (nrow(assay4_obj@scale.data) > 0) {
+            rownames(assay4_obj@scale.data) <- gene_symbols_rownames
+            message("  Updated scale.data rownames")
+          }
+
+          # Update meta.features with gene.symbol column
+          # gene.symbolには元の遺伝子名（重複を含む、_あり）を保存（aggregate用）
+          # rownames は "-" 版（Seurat互換）
+          assay4_obj@meta.features <- data.frame(
+            orig.gene.symbol = gene_symbols,  # 元の遺伝子名（重複を含む、_あり）
+            gene.symbol = gene_symbols,       # aggregateで使用（_あり）
+            row.names = gene_symbols_rownames # rownames（-版、Seurat互換）
+          )
+          message("  Updated meta.features")
+          message(paste("  gene.symbol sample (for aggregate):", paste(head(gene_symbols, 3), collapse = ", ")))
+
+          # Convert back to Assay5
+          new_assay5 <- as(assay4_obj, "Assay5")
+          message("  Converted back to Assay5")
+
+          # Replace assay in Seurat object
+          seurat_object[[assay_name]] <<- new_assay5
+          message("  Replaced assay in Seurat object")
+
+        }, error = function(e) {
+          message(paste("  Error:", e$message))
+          stop(e)
+        })
+
       } else {
-        # Seurat v4 or earlier
+        # Assay v4: Direct modification
+        message("  Assay v4 detected - direct modification")
+
         if (nrow(seurat_object@assays[[assay_name]]@counts) > 0) {
-          rownames(seurat_object@assays[[assay_name]]@counts) <<- gene_symbols_mod
-          message("  Updated counts matrix rownames")
+          rownames(seurat_object@assays[[assay_name]]@counts) <<- gene_symbols_rownames
+          message("  Updated counts rownames")
         }
         if (nrow(seurat_object@assays[[assay_name]]@data) > 0) {
-          rownames(seurat_object@assays[[assay_name]]@data) <<- gene_symbols_mod
-          message("  Updated data matrix rownames")
+          rownames(seurat_object@assays[[assay_name]]@data) <<- gene_symbols_rownames
+          message("  Updated data rownames")
         }
         if (nrow(seurat_object@assays[[assay_name]]@scale.data) > 0) {
-          rownames(seurat_object@assays[[assay_name]]@scale.data) <<- gene_symbols_mod
-          message("  Updated scale.data matrix rownames")
+          rownames(seurat_object@assays[[assay_name]]@scale.data) <<- gene_symbols_rownames
+          message("  Updated scale.data rownames")
         }
+
+        # Update meta.features
+        # gene.symbolには元の遺伝子名（重複を含む、_あり）を保存（aggregate用）
+        # rownames は "-" 版（Seurat互換）
+        seurat_object@assays[[assay_name]]@meta.features <<- data.frame(
+          orig.gene.symbol = gene_symbols,  # 元の遺伝子名（重複を含む、_あり）
+          gene.symbol = gene_symbols,       # aggregateで使用（_あり）
+          row.names = gene_symbols_rownames # rownames（-版、Seurat互換）
+        )
+        message("  Updated meta.features")
+        message(paste("  gene.symbol sample (for aggregate):", paste(head(gene_symbols, 3), collapse = ", ")))
       }
 
-      # Step 6: Update meta.features rownames
-      rownames(seurat_object@assays[[assay_name]]@meta.features) <<- gene_symbols_mod
-      message("Step 6: Updated meta.features rownames to gene.symbol.mod")
-
-      # Step 7: Clear VariableFeatures (gene names changed, need to recalculate)
+      # Step 5: Clear VariableFeatures
       if (length(VariableFeatures(seurat_object)) > 0) {
         old_count <- length(VariableFeatures(seurat_object))
         VariableFeatures(seurat_object) <<- character(0)
-        message(paste("Step 7: Cleared", old_count, "VariableFeatures (need to recalculate after name change)"))
+        message(paste("Step 5: Cleared", old_count, "VariableFeatures"))
       } else {
-        message("Step 7: No VariableFeatures to clear")
+        message("Step 5: No VariableFeatures to clear")
       }
 
-      # Show success notification
+      # Show success
       message("\n=== Gene Name Conversion Complete ===")
-      message(paste("Total genes:", length(gene_symbols_mod)))
-      message(paste("Duplicates resolved:", num_duplicates))
-      message(paste("Meta.features columns:", paste(colnames(seurat_object@assays[[assay_name]]@meta.features), collapse = ", ")))
+      message(paste("Total genes:", length(gene_symbols_rownames)))
+      message(paste("Duplicates with suffix:", num_duplicates))
+      message(paste("Meta.features columns:", paste(colnames(get_meta_features(seurat_object, assay_name)), collapse = ", ")))
 
       # Remove the "Converting..." notification
       removeNotification(id = "convertGeneNames")
@@ -2963,6 +3114,9 @@ meta_data <-  names(seurat_object@meta.data)
         showNotification("Gene names converted successfully. No duplicates found.",
                          type = 'message', duration = 5)
       }
+
+      # Update the column selectInput for Ensembl tab
+      updateGeneNameColumnSelect()
 
     }, error = function(e) {
       # Remove the "Converting..." notification on error too
@@ -3002,19 +3156,21 @@ meta_data <-  names(seurat_object@meta.data)
 
         assay_name <- DefaultAssay(seurat_object)
 
-        # Check if gene.symbol column exists in meta.features
-        if (!"gene.symbol" %in% colnames(seurat_object@assays[[assay_name]]@meta.features)) {
+        # Get meta.features using helper function (works with both v4 and v5)
+        meta_features <- get_meta_features(seurat_object, assay_name)
+
+        # Check if gene.symbol column exists
+        if (!"gene.symbol" %in% colnames(meta_features)) {
           removeModal()
-          showNotification("Error: gene.symbol column not found in meta.features. Please run gene name conversion first.",
+          showNotification("Error: gene.symbol column not found. Please run gene name conversion first.",
                           type = 'error', duration = 10)
           message("ERROR: gene.symbol column not found. Run convertH5adGeneNames first.")
           return()
         }
 
-        # Get gene information from meta.features
-        meta_features <- seurat_object@assays[[assay_name]]@meta.features
+        # Get gene information
         gene_symbols <- meta_features$gene.symbol
-        gene_symbols_mod <- rownames(meta_features)  # Should match gene.symbol.mod
+        gene_symbols_mod <- rownames(meta_features)
 
         message(paste("Step 1: Retrieved gene information"))
         message(paste("  Total genes:", length(gene_symbols)))
@@ -3085,246 +3241,256 @@ meta_data <-  names(seurat_object@meta.data)
 
       # Step 4: Aggregate data matrices
       message("Step 4: Aggregating data matrices")
-      if (is_assay5(seurat_object)) {
-        # Seurat v5
-        has_counts <- length(seurat_object[[assay_name]]$counts) > 0
-        has_data <- length(seurat_object[[assay_name]]$data) > 0
-        has_scale <- length(seurat_object[[assay_name]]$scale.data) > 0
 
-        message(paste("  has_counts:", has_counts, ", has_data:", has_data, ", has_scale:", has_scale))
+      # For Assay5: Convert to Assay v4 first, aggregate, then convert back
+      is_v5 <- is_assay5(seurat_object, assay_name)
+      assay4_obj <- NULL
 
-        # Always delete scale.data
-        if (has_scale) {
-          incProgress(0.3, detail = "Removing scale.data...")
-          seurat_object[[assay_name]]$scale.data <<- new("matrix")
-          message("  ✓ scale.data removed (will be recalculated after aggregation if needed)")
-        }
+      if (is_v5) {
+        message("  Assay5 detected - converting to Assay v4 for aggregation")
+        assay4_obj <- as(seurat_object[[assay_name]], "Assay")
+        message("  Converted to Assay v4")
+      }
 
-        # Priority: counts > data
-        if (has_counts) {
-          incProgress(0.4, detail = "Aggregating counts matrix...")
-          message("  Aggregating counts matrix...")
-
-          # Extract duplicated genes
-          dup_mat <- seurat_object[[assay_name]]$counts[dup_idx, , drop = FALSE]
-          message(paste("    Extracted", nrow(dup_mat), "duplicated rows from counts"))
-
-          # Aggregate using rowsum() grouped by gene.symbol
-          if (input$aggregateDuplicatesMethod == "sum") {
-            agg_dup_mat <- rowsum(dup_mat, group = dup_gene_symbols, reorder = FALSE)
-          } else if (input$aggregateDuplicatesMethod == "mean") {
-            agg_dup_mat <- rowsum(dup_mat, group = dup_gene_symbols, reorder = FALSE)
-            counts_vec <- as.numeric(table(dup_gene_symbols)[rownames(agg_dup_mat)])
-            agg_dup_mat <- agg_dup_mat / counts_vec
-          }
-          message(paste("    Aggregated to", nrow(agg_dup_mat), "unique genes"))
-
-          # Remove duplicated genes and add aggregated genes
-          seurat_object[[assay_name]]$counts <<- seurat_object[[assay_name]]$counts[-dup_idx, , drop = FALSE]
-          seurat_object[[assay_name]]$counts <<- rbind(seurat_object[[assay_name]]$counts, agg_dup_mat)
-          message(paste("    ✓ counts matrix updated: now", nrow(seurat_object[[assay_name]]$counts), "genes"))
-
-          # Delete data if it exists (will be recalculated from counts)
-          if (has_data) {
-            seurat_object[[assay_name]]$data <<- new("matrix")
-            message("    ✓ data removed (recalculate with NormalizeData)")
-          }
-        } else if (has_data) {
-          incProgress(0.4, detail = "Aggregating data matrix...")
-          message("  Aggregating data matrix (no counts available)...")
-
-          # Extract duplicated genes
-          dup_mat <- seurat_object[[assay_name]]$data[dup_idx, , drop = FALSE]
-          message(paste("    Extracted", nrow(dup_mat), "duplicated rows from data"))
-
-          # Remove duplicated genes first
-          seurat_object[[assay_name]]$data <<- seurat_object[[assay_name]]$data[-dup_idx, , drop = FALSE]
-
-          # Aggregate duplicates by unique gene symbols
-          unique_dup_genes <- unique(dup_gene_symbols)
-          message(paste("    Aggregating", length(dup_gene_symbols), "duplicates into", length(unique_dup_genes), "unique genes"))
-
-          # Add aggregated genes one by one to preserve sparse format
-          for (ug in unique_dup_genes) {
-            idx_in_dup <- which(dup_gene_symbols == ug)
-            if (input$aggregateDuplicatesMethod == "sum") {
-              agg_row <- Matrix::colSums(dup_mat[idx_in_dup, , drop = FALSE])
-            } else if (input$aggregateDuplicatesMethod == "mean") {
-              agg_row <- Matrix::colMeans(dup_mat[idx_in_dup, , drop = FALSE])
-            }
-            # Create sparse matrix for single row
-            agg_row_mat <- Matrix::Matrix(agg_row, nrow = 1, ncol = length(agg_row), sparse = TRUE)
-            rownames(agg_row_mat) <- ug
-            # Append using rbind (works with both sparse)
-            seurat_object[[assay_name]]$data <<- rbind(seurat_object[[assay_name]]$data, agg_row_mat)
-          }
-          message(paste("    ✓ data matrix updated: now", nrow(seurat_object[[assay_name]]$data), "genes"))
-        } else {
-          message("  WARNING: No counts or data matrix found!")
-        }
+      # Use Assay v4 for aggregation (either converted or original)
+      if (is_v5) {
+        # Work on converted Assay v4
+        has_counts <- nrow(assay4_obj@counts) > 0
+        has_data <- nrow(assay4_obj@data) > 0
+        has_scale <- nrow(assay4_obj@scale.data) > 0
       } else {
-        # Seurat v4 or earlier
         has_counts <- nrow(seurat_object@assays[[assay_name]]@counts) > 0
         has_data <- nrow(seurat_object@assays[[assay_name]]@data) > 0
         has_scale <- nrow(seurat_object@assays[[assay_name]]@scale.data) > 0
-
-        message(paste("  Seurat v4: has_counts:", has_counts, ", has_data:", has_data, ", has_scale:", has_scale))
-
-        # Always delete scale.data
-        if (has_scale) {
-          incProgress(0.3, detail = "Removing scale.data...")
-          seurat_object@assays[[assay_name]]@scale.data <<- new("matrix")
-          message("  ✓ scale.data removed (v4)")
-        }
-
-        # Priority: counts > data
-        if (has_counts) {
-          incProgress(0.4, detail = "Aggregating counts matrix (v4)...")
-          message("  Aggregating counts matrix (v4)...")
-
-          dup_mat <- seurat_object@assays[[assay_name]]@counts[dup_idx, , drop = FALSE]
-          message(paste("    Extracted", nrow(dup_mat), "duplicated rows from counts"))
-
-          # Remove duplicated genes first
-          seurat_object@assays[[assay_name]]@counts <<- seurat_object@assays[[assay_name]]@counts[-dup_idx, , drop = FALSE]
-
-          # Aggregate duplicates by unique gene symbols
-          unique_dup_genes <- unique(dup_gene_symbols)
-          message(paste("    Aggregating", length(dup_gene_symbols), "duplicates into", length(unique_dup_genes), "unique genes"))
-
-          # Add aggregated genes one by one to preserve sparse format
-          for (ug in unique_dup_genes) {
-            idx_in_dup <- which(dup_gene_symbols == ug)
-            if (input$aggregateDuplicatesMethod == "sum") {
-              agg_row <- Matrix::colSums(dup_mat[idx_in_dup, , drop = FALSE])
-            } else if (input$aggregateDuplicatesMethod == "mean") {
-              agg_row <- Matrix::colMeans(dup_mat[idx_in_dup, , drop = FALSE])
-            }
-            # Create sparse matrix for single row
-            agg_row_mat <- Matrix::Matrix(agg_row, nrow = 1, ncol = length(agg_row), sparse = TRUE)
-            rownames(agg_row_mat) <- ug
-            # Append using rbind (works with both sparse)
-            seurat_object@assays[[assay_name]]@counts <<- rbind(seurat_object@assays[[assay_name]]@counts, agg_row_mat)
-          }
-          message(paste("    ✓ counts matrix updated: now", nrow(seurat_object@assays[[assay_name]]@counts), "genes"))
-
-          if (has_data) {
-            seurat_object@assays[[assay_name]]@data <<- new("matrix")
-            message("    ✓ data removed (recalculate with NormalizeData)")
-          }
-        } else if (has_data) {
-          incProgress(0.4, detail = "Aggregating data matrix (v4)...")
-          message("  Aggregating data matrix (v4, no counts)...")
-
-          dup_mat <- seurat_object@assays[[assay_name]]@data[dup_idx, , drop = FALSE]
-          message(paste("    Extracted", nrow(dup_mat), "duplicated rows from data"))
-
-          # Remove duplicated genes first
-          seurat_object@assays[[assay_name]]@data <<- seurat_object@assays[[assay_name]]@data[-dup_idx, , drop = FALSE]
-
-          # Aggregate duplicates by unique gene symbols
-          unique_dup_genes <- unique(dup_gene_symbols)
-          message(paste("    Aggregating", length(dup_gene_symbols), "duplicates into", length(unique_dup_genes), "unique genes"))
-
-          # Add aggregated genes one by one to preserve sparse format
-          for (ug in unique_dup_genes) {
-            idx_in_dup <- which(dup_gene_symbols == ug)
-            if (input$aggregateDuplicatesMethod == "sum") {
-              agg_row <- Matrix::colSums(dup_mat[idx_in_dup, , drop = FALSE])
-            } else if (input$aggregateDuplicatesMethod == "mean") {
-              agg_row <- Matrix::colMeans(dup_mat[idx_in_dup, , drop = FALSE])
-            }
-            # Create sparse matrix for single row
-            agg_row_mat <- Matrix::Matrix(agg_row, nrow = 1, ncol = length(agg_row), sparse = TRUE)
-            rownames(agg_row_mat) <- ug
-            # Append using rbind (works with both sparse)
-            seurat_object@assays[[assay_name]]@data <<- rbind(seurat_object@assays[[assay_name]]@data, agg_row_mat)
-          }
-          message(paste("    ✓ data matrix updated: now", nrow(seurat_object@assays[[assay_name]]@data), "genes"))
-        } else {
-          message("  WARNING: No counts or data matrix found (v4)!")
-        }
       }
 
-      # Step 5: Update meta.features - must match data matrix row order
+      message(paste("  has_counts:", has_counts, ", has_data:", has_data, ", has_scale:", has_scale))
+
+      # Always delete scale.data
+      if (has_scale) {
+        incProgress(0.3, detail = "Removing scale.data...")
+        if (is_v5) {
+          assay4_obj@scale.data <- new("matrix")
+        } else {
+          seurat_object@assays[[assay_name]]@scale.data <<- new("matrix")
+        }
+        message("  ✓ scale.data removed")
+      }
+
+      # Priority: counts > data
+      unique_dup_genes <- unique(dup_gene_symbols)
+
+      if (has_counts) {
+        incProgress(0.4, detail = "Aggregating counts matrix...")
+        message("  Aggregating counts matrix...")
+
+        if (is_v5) {
+          dup_mat <- assay4_obj@counts[dup_idx, , drop = FALSE]
+        } else {
+          dup_mat <- seurat_object@assays[[assay_name]]@counts[dup_idx, , drop = FALSE]
+        }
+        message(paste("    Extracted", nrow(dup_mat), "duplicated rows from counts"))
+
+        # Remove duplicated genes first
+        if (is_v5) {
+          assay4_obj@counts <- assay4_obj@counts[-dup_idx, , drop = FALSE]
+        } else {
+          seurat_object@assays[[assay_name]]@counts <<- seurat_object@assays[[assay_name]]@counts[-dup_idx, , drop = FALSE]
+        }
+
+        message(paste("    Aggregating", length(dup_gene_symbols), "duplicates into", length(unique_dup_genes), "unique genes"))
+
+        # Efficient aggregation: collect all aggregated rows first, then rbind once
+        agg_rows_list <- vector("list", length(unique_dup_genes))
+        names(agg_rows_list) <- unique_dup_genes
+
+        for (i in seq_along(unique_dup_genes)) {
+          ug <- unique_dup_genes[i]
+          idx_in_dup <- which(dup_gene_symbols == ug)
+          if (input$aggregateDuplicatesMethod == "sum") {
+            agg_row <- Matrix::colSums(dup_mat[idx_in_dup, , drop = FALSE])
+          } else {
+            agg_row <- Matrix::colMeans(dup_mat[idx_in_dup, , drop = FALSE])
+          }
+          agg_row_mat <- Matrix::Matrix(agg_row, nrow = 1, ncol = length(agg_row), sparse = TRUE)
+          rownames(agg_row_mat) <- str_replace_all(ug, '_', '.')  # Seurat互換（_を.に変換）
+          agg_rows_list[[i]] <- agg_row_mat
+
+          # Progress update every 500 genes
+          if (i %% 500 == 0) {
+            message(paste("      Processed", i, "/", length(unique_dup_genes), "genes"))
+          }
+        }
+
+        # Combine all aggregated rows at once (much faster than repeated rbind)
+        message("    Combining aggregated rows...")
+        agg_mat <- do.call(rbind, agg_rows_list)
+
+        # Add to matrix
+        if (is_v5) {
+          assay4_obj@counts <- rbind(assay4_obj@counts, agg_mat)
+          message(paste("    ✓ counts matrix updated: now", nrow(assay4_obj@counts), "genes"))
+        } else {
+          seurat_object@assays[[assay_name]]@counts <<- rbind(seurat_object@assays[[assay_name]]@counts, agg_mat)
+          message(paste("    ✓ counts matrix updated: now", nrow(seurat_object@assays[[assay_name]]@counts), "genes"))
+        }
+
+        # Set data = counts (this is Seurat's default when creating assay with counts only)
+        if (is_v5) {
+          assay4_obj@data <- assay4_obj@counts
+        } else {
+          seurat_object@assays[[assay_name]]@data <<- seurat_object@assays[[assay_name]]@counts
+        }
+        message("    ✓ data set to counts (run NormalizeData later)")
+        showNotification(
+          HTML("現在 data slot には counts と同じデータが入っています。<br>解析を進める前に <b>NormalizeData</b> を実行してください。"),
+          type = "warning",
+          duration = 30
+        )
+
+      } else if (has_data) {
+        incProgress(0.4, detail = "Aggregating data matrix...")
+        message("  Aggregating data matrix (no counts available)...")
+
+        if (is_v5) {
+          dup_mat <- assay4_obj@data[dup_idx, , drop = FALSE]
+        } else {
+          dup_mat <- seurat_object@assays[[assay_name]]@data[dup_idx, , drop = FALSE]
+        }
+        message(paste("    Extracted", nrow(dup_mat), "duplicated rows from data"))
+
+        # Remove duplicated genes first
+        if (is_v5) {
+          assay4_obj@data <- assay4_obj@data[-dup_idx, , drop = FALSE]
+        } else {
+          seurat_object@assays[[assay_name]]@data <<- seurat_object@assays[[assay_name]]@data[-dup_idx, , drop = FALSE]
+        }
+
+        message(paste("    Aggregating", length(dup_gene_symbols), "duplicates into", length(unique_dup_genes), "unique genes"))
+
+        # Efficient aggregation: collect all aggregated rows first, then rbind once
+        agg_rows_list <- vector("list", length(unique_dup_genes))
+        names(agg_rows_list) <- unique_dup_genes
+
+        for (i in seq_along(unique_dup_genes)) {
+          ug <- unique_dup_genes[i]
+          idx_in_dup <- which(dup_gene_symbols == ug)
+          if (input$aggregateDuplicatesMethod == "sum") {
+            agg_row <- Matrix::colSums(dup_mat[idx_in_dup, , drop = FALSE])
+          } else {
+            agg_row <- Matrix::colMeans(dup_mat[idx_in_dup, , drop = FALSE])
+          }
+          agg_row_mat <- Matrix::Matrix(agg_row, nrow = 1, ncol = length(agg_row), sparse = TRUE)
+          rownames(agg_row_mat) <- str_replace_all(ug, '_', '.')  # Seurat互換（_を.に変換）
+          agg_rows_list[[i]] <- agg_row_mat
+
+          # Progress update every 500 genes
+          if (i %% 500 == 0) {
+            message(paste("      Processed", i, "/", length(unique_dup_genes), "genes"))
+          }
+        }
+
+        # Combine all aggregated rows at once (much faster than repeated rbind)
+        message("    Combining aggregated rows...")
+        agg_mat <- do.call(rbind, agg_rows_list)
+
+        # Add to matrix
+        if (is_v5) {
+          assay4_obj@data <- rbind(assay4_obj@data, agg_mat)
+          message(paste("    ✓ data matrix updated: now", nrow(assay4_obj@data), "genes"))
+        } else {
+          seurat_object@assays[[assay_name]]@data <<- rbind(seurat_object@assays[[assay_name]]@data, agg_mat)
+          message(paste("    ✓ data matrix updated: now", nrow(seurat_object@assays[[assay_name]]@data), "genes"))
+        }
+
+      } else {
+        message("  WARNING: No counts or data matrix found!")
+      }
+
+      # Step 5: Update meta.features
       message("Step 5: Updating meta.features")
       incProgress(0.6, detail = "Updating meta.features...")
 
-      # Get current meta.features to extract our three columns
-      meta_features_before <- seurat_object@assays[[assay_name]]@meta.features
-      message(paste("  Meta.features before aggregation:", nrow(meta_features_before), "rows"))
-      message(paste("    Columns before:", paste(colnames(meta_features_before), collapse = ", ")))
+      # Get current meta.features (use helper function)
+      meta_features_before <- get_meta_features(seurat_object, assay_name)
+      message(paste("  Meta.features before:", nrow(meta_features_before), "rows"))
 
-      # Remove duplicated rows from meta.features (same as data matrix)
+      # Remove duplicated rows
       meta_features_keep <- meta_features_before[-dup_idx, , drop = FALSE]
 
-      # Add meta.features for aggregated genes (same order as added to data matrix)
-      unique_dup_genes <- unique(dup_gene_symbols)
+      # Add meta.features for aggregated genes
       for (ug in unique_dup_genes) {
-        # Find first occurrence of this gene in the original data
         first_idx <- which(dup_gene_symbols == ug)[1]
         orig_idx <- dup_idx[first_idx]
 
-        # Create row for this aggregated gene
         agg_meta_row <- data.frame(
           orig.gene.symbol = meta_features_before$orig.gene.symbol[orig_idx],
-          gene.symbol = meta_features_before$gene.symbol[orig_idx],
-          gene.symbol.mod = ug,
-          row.names = ug,
+          gene.symbol = ug,  # aggregateで使用（_あり）
+          row.names = str_replace_all(ug, '_', '.'),  # Seurat互換（_を.に変換）
           stringsAsFactors = FALSE
         )
-
-        # Append to meta.features (same order as data matrix)
         meta_features_keep <- rbind(meta_features_keep, agg_meta_row)
       }
 
-      seurat_object@assays[[assay_name]]@meta.features <<- meta_features_keep
-      message(paste("  ✓ Meta.features updated:", nrow(meta_features_keep), "rows"))
-      message(paste("    Columns after:", paste(colnames(meta_features_keep), collapse = ", ")))
-      message(paste("    First 5 rownames:", paste(head(rownames(meta_features_keep), 5), collapse = ", ")))
+      # Check for duplicate rownames after aggregation (can happen when "_" and "-" genes collide)
+      current_rownames <- rownames(meta_features_keep)
+      if (any(duplicated(current_rownames))) {
+        message("  WARNING: Duplicate rownames detected after aggregation, making unique with '.'")
+        new_rownames <- make.unique(current_rownames, sep = ".")
+        rownames(meta_features_keep) <- new_rownames
 
-      # Step 5.5: Verify data matrix and meta.features row order match
-      message("Step 5.5: Verifying data matrix and meta.features alignment")
-
-      # Get data matrix rownames
-      if (is_assay5(seurat_object)) {
-        if (length(seurat_object[[assay_name]]$data) > 0) {
-          data_rownames <- rownames(seurat_object[[assay_name]]$data)
-        } else if (length(seurat_object[[assay_name]]$counts) > 0) {
-          data_rownames <- rownames(seurat_object[[assay_name]]$counts)
-        } else {
-          data_rownames <- NULL
-        }
-      } else {
-        if (nrow(seurat_object@assays[[assay_name]]@data) > 0) {
-          data_rownames <- rownames(seurat_object@assays[[assay_name]]@data)
-        } else if (nrow(seurat_object@assays[[assay_name]]@counts) > 0) {
-          data_rownames <- rownames(seurat_object@assays[[assay_name]]@counts)
-        } else {
-          data_rownames <- NULL
-        }
-      }
-
-      meta_rownames <- rownames(seurat_object@assays[[assay_name]]@meta.features)
-
-      if (!is.null(data_rownames) && !is.null(meta_rownames)) {
-        if (length(data_rownames) == length(meta_rownames)) {
-          if (all(data_rownames == meta_rownames)) {
-            message("  ✓ Row names match perfectly between data matrix and meta.features")
-            message(paste("    Total genes:", length(data_rownames)))
-          } else {
-            mismatches <- sum(data_rownames != meta_rownames)
-            message(paste("  WARNING: Row name order mismatch detected:", mismatches, "differences"))
-            message("    First 5 data matrix rownames:", paste(head(data_rownames, 5), collapse = ", "))
-            message("    First 5 meta.features rownames:", paste(head(meta_rownames, 5), collapse = ", "))
+        # Also update matrix rownames
+        if (is_v5) {
+          rownames(assay4_obj@counts) <- new_rownames
+          if (nrow(assay4_obj@data) > 0) {
+            rownames(assay4_obj@data) <- new_rownames
           }
         } else {
-          message(paste("  ERROR: Row count mismatch! Data matrix:", length(data_rownames),
-                       "vs meta.features:", length(meta_rownames)))
+          rownames(seurat_object@assays[[assay_name]]@counts) <<- new_rownames
+          if (nrow(seurat_object@assays[[assay_name]]@data) > 0) {
+            rownames(seurat_object@assays[[assay_name]]@data) <<- new_rownames
+          }
         }
-      } else {
-        message("  WARNING: Could not verify alignment - one or both matrices are empty")
+
+        # Show notification with modified gene names
+        modified_idx <- which(current_rownames != new_rownames)
+        modified_genes <- new_rownames[modified_idx]
+        if (length(modified_genes) > 20) {
+          display_genes <- c(head(modified_genes, 20), paste("... and", length(modified_genes) - 20, "more"))
+        } else {
+          display_genes <- modified_genes
+        }
+        showNotification(
+          HTML(paste0(
+            "<b>Aggregation: ", length(modified_genes), " genes renamed due to duplicates</b><br>",
+            "<small>(duplicate gene names detected, .1, .2 etc. added)</small><br><br>",
+            paste(display_genes, collapse = "<br>")
+          )),
+          type = "warning",
+          duration = 60
+        )
+        message(paste("  ✓ Made rownames unique:", length(modified_genes), "names modified"))
       }
+
+      # Update meta.features
+      if (is_v5) {
+        assay4_obj@meta.features <- meta_features_keep
+        message(paste("  ✓ Meta.features updated:", nrow(meta_features_keep), "rows"))
+
+        # Convert back to Assay5 and replace
+        message("  Converting back to Assay5...")
+        new_assay5 <- as(assay4_obj, "Assay5")
+        seurat_object[[assay_name]] <<- new_assay5
+        message("  ✓ Replaced assay in Seurat object")
+      } else {
+        seurat_object@assays[[assay_name]]@meta.features <<- meta_features_keep
+        message(paste("  ✓ Meta.features updated:", nrow(meta_features_keep), "rows"))
+      }
+
+      # Verify final state
+      final_meta <- get_meta_features(seurat_object, assay_name)
+      message(paste("  Final gene count:", nrow(final_meta)))
+      message(paste("  First 5 rownames:", paste(head(rownames(final_meta), 5), collapse = ", ")))
 
       # Step 6: Comprehensive cleanup of gene-dependent data
       message("Step 6: Cleaning up gene-dependent data")
@@ -3339,21 +3505,9 @@ meta_data <-  names(seurat_object@meta.data)
         message("  ✓ No VariableFeatures to clear")
       }
 
-      # 6.1b: Clean up meta.features - remove any statistical columns added by FindVariableFeatures
-      current_meta_cols <- colnames(seurat_object@assays[[assay_name]]@meta.features)
-      # Keep only our three columns
-      cols_to_keep <- c("orig.gene.symbol", "gene.symbol", "gene.symbol.mod")
-      cols_to_remove <- setdiff(current_meta_cols, cols_to_keep)
-
-      if (length(cols_to_remove) > 0) {
-        # Keep only the three columns we want
-        seurat_object@assays[[assay_name]]@meta.features <<-
-          seurat_object@assays[[assay_name]]@meta.features[, cols_to_keep, drop = FALSE]
-        message(paste("  ✓ Removed", length(cols_to_remove), "statistical columns from meta.features:",
-                     paste(cols_to_remove, collapse = ", ")))
-      } else {
-        message("  ✓ meta.features already clean (only 3 columns)")
-      }
+      # 6.1b: meta.features already cleaned in Step 5
+      current_meta <- get_meta_features(seurat_object, assay_name)
+      message(paste("  ✓ meta.features columns:", paste(colnames(current_meta), collapse = ", ")))
 
       # 6.2: Clear command history
       if (length(seurat_object@commands) > 0) {
@@ -3390,7 +3544,7 @@ meta_data <-  names(seurat_object@meta.data)
       }
 
       original_genes <<- length(gene_symbols)
-      new_genes <<- nrow(new_meta_features)
+      new_genes <<- nrow(meta_features_keep)
 
       # Step 7: Final validation
       message("Step 7: Final validation")
@@ -3419,7 +3573,7 @@ meta_data <-  names(seurat_object@meta.data)
         }
 
         final_gene_names <- rownames(final_mat)
-        final_meta <- seurat_object@assays[[assay_name]]@meta.features
+        final_meta <- get_meta_features(seurat_object, assay_name)
 
         message(paste("  Final matrix dimensions:", nrow(final_mat), "genes ×", ncol(final_mat), "cells"))
         message(paste("  Final meta.features dimensions:", nrow(final_meta), "rows ×", ncol(final_meta), "cols"))
@@ -3466,6 +3620,19 @@ meta_data <-  names(seurat_object@meta.data)
           message(paste("  Note: Could not check for NA/Inf values:", e$message))
         })
 
+        # Check if data slot is empty (user needs to run NormalizeData)
+        has_data_slot <- FALSE
+        if (is_assay5(seurat_object)) {
+          has_data_slot <- length(seurat_object[[assay_name]]$data) > 0
+        } else {
+          has_data_slot <- nrow(seurat_object@assays[[assay_name]]@data) > 0
+        }
+        if (!has_data_slot) {
+          validation_warnings <<- c(validation_warnings,
+            "⚠️ Data slot is empty. Run NormalizeData before FeaturePlot/visualization.")
+          message("  ⚠️ Data slot is empty - NormalizeData required for visualization")
+        }
+
         message("\n=== Gene Aggregation Complete ===")
         message(paste("Before:", original_genes, "genes"))
         message(paste("After:", new_genes, "genes"))
@@ -3494,7 +3661,7 @@ meta_data <-  names(seurat_object@meta.data)
       notification_msg <- paste0(
         "<b>Gene Aggregation Complete!</b><br>",
         "Genes: ", original_genes, " → ", new_genes, " (", num_duplicated, " duplicates merged)<br>",
-        "Method: ", aggregation_method, "<br>"
+        "Method: ", input$aggregateDuplicatesMethod, "<br>"
       )
 
       # Add old command history info if cleaned
@@ -3542,7 +3709,7 @@ meta_data <-  names(seurat_object@meta.data)
       )
 
       print(paste("Genes aggregated:", original_genes, "->", new_genes))
-      print(paste("Method:", aggregation_method))
+      print(paste("Method:", input$aggregateDuplicatesMethod))
 
     }, error = function(e) {
       removeModal()
@@ -10522,6 +10689,56 @@ observeEvent(input$uploadCell, {
         shinyjs::show("mtCounts_loader")
         showModal(modalDialog(div('Analysis in Progress. This operation may take several minutes, please wait...', style='color:#ffffff; background-color:#222d32;'), footer = NULL, style = 'font-size:20px; text-align:center;position:absolute;')) #position:absolute;top:50%;left:50%
 
+# Calculate nCount and nFeature if they don't exist in metadata
+# nCount_RNA, nFeature_RNAがmetadataにない場合はcountsから計算する
+tryCatch({
+  assay_name <- DefaultAssay(seurat_object)
+  ncount_col <- paste0("nCount_", assay_name)
+  nfeature_col <- paste0("nFeature_", assay_name)
+
+  # Check if counts matrix exists
+  has_counts <- FALSE
+  if (is_assay5(seurat_object)) {
+    has_counts <- length(seurat_object[[assay_name]]$counts) > 0
+  } else {
+    has_counts <- nrow(seurat_object[[assay_name]]@counts) > 0
+  }
+
+  # Calculate nCount if missing
+  if (!ncount_col %in% colnames(seurat_object@meta.data)) {
+    message(paste0(ncount_col, " not found in metadata. Calculating..."))
+    if (has_counts) {
+      seurat_object@meta.data[[ncount_col]] <<- Matrix::colSums(seurat_object[[assay_name]]$counts)
+      message(paste0("Calculated ", ncount_col, " from counts matrix"))
+    } else {
+      # Use data matrix as fallback
+      seurat_object@meta.data[[ncount_col]] <<- Matrix::colSums(seurat_object[[assay_name]]$data)
+      message(paste0("Calculated ", ncount_col, " from data matrix (counts not available)"))
+    }
+  }
+
+  # Calculate nFeature if missing
+  if (!nfeature_col %in% colnames(seurat_object@meta.data)) {
+    message(paste0(nfeature_col, " not found in metadata. Calculating..."))
+    if (has_counts) {
+      seurat_object@meta.data[[nfeature_col]] <<- Matrix::colSums(seurat_object[[assay_name]]$counts > 0)
+      message(paste0("Calculated ", nfeature_col, " from counts matrix"))
+    } else {
+      seurat_object@meta.data[[nfeature_col]] <<- Matrix::colSums(seurat_object[[assay_name]]$data > 0)
+      message(paste0("Calculated ", nfeature_col, " from data matrix (counts not available)"))
+    }
+  }
+
+  # Calculate percent.mt if missing
+  if (!"percent.mt" %in% colnames(seurat_object@meta.data)) {
+    message("percent.mt not found in metadata. Calculating...")
+    mt_pattern <- if (organism == "human") "^MT-" else "^mt-"
+    seurat_object[["percent.mt"]] <<- PercentageFeatureSet(seurat_object, pattern = mt_pattern)
+    message("Calculated percent.mt")
+  }
+}, error = function(e) {
+  message(paste("Error calculating QC metrics:", e$message))
+})
 
 #QCClusterもここで設定する?
 updateSelectInput(session, "QCCluster", choices = (levels(seurat_object@meta.data[, input$qcColorBy]))) # QC用
@@ -11084,8 +11301,8 @@ print("normalization 1")
             }
           }
 
-          # Remove old variance columns from meta.features
-          meta_features <- seurat_object@assays[[assay_name]]@meta.features
+          # Remove old variance columns from meta.features (Assay5対応)
+          meta_features <- get_meta_features(seurat_object, assay_name)
           variance_cols <- c("vst.mean", "vst.variance", "vst.variance.expected",
                             "vst.variance.standardized", "vst.variable",
                             "mvp.mean", "mvp.dispersion", "mvp.dispersion.scaled", "mvp.variable",
@@ -11094,7 +11311,7 @@ print("normalization 1")
           cols_to_remove <- intersect(colnames(meta_features), variance_cols)
           if (length(cols_to_remove) > 0) {
             meta_features <- meta_features[, !colnames(meta_features) %in% cols_to_remove, drop = FALSE]
-            seurat_object@assays[[assay_name]]@meta.features <<- meta_features
+            seurat_object <<- set_meta_features(seurat_object, meta_features, assay_name)
             message(paste("Removed", length(cols_to_remove), "old variance columns from meta.features"))
           }
         }, error = function(e) {
@@ -11400,8 +11617,8 @@ tryCatch({
             }
           }
 
-          # Remove old variance columns from meta.features
-          meta_features <- seurat_object@assays[[assay_name]]@meta.features
+          # Remove old variance columns from meta.features (Assay5対応)
+          meta_features <- get_meta_features(seurat_object, assay_name)
           variance_cols <- c("vst.mean", "vst.variance", "vst.variance.expected",
                             "vst.variance.standardized", "vst.variable",
                             "mvp.mean", "mvp.dispersion", "mvp.dispersion.scaled", "mvp.variable",
@@ -11410,7 +11627,7 @@ tryCatch({
           cols_to_remove <- intersect(colnames(meta_features), variance_cols)
           if (length(cols_to_remove) > 0) {
             meta_features <- meta_features[, !colnames(meta_features) %in% cols_to_remove, drop = FALSE]
-            seurat_object@assays[[assay_name]]@meta.features <<- meta_features
+            seurat_object <<- set_meta_features(seurat_object, meta_features, assay_name)
             message(paste("Removed", length(cols_to_remove), "old variance columns from meta.features"))
           }
         }, error = function(e) {
@@ -14892,8 +15109,8 @@ observeEvent(input$heatmapConfirm, {
 
       # Determine genes to plot
       if (input$heatmapGeneSource == "hvg") {
-        # Use top HVGs
-        hvg_info <- seurat_object@assays[[seurat_object@active.assay]]@meta.features
+        # Use top HVGs (Assay5対応)
+        hvg_info <- get_meta_features(seurat_object, seurat_object@active.assay)
         if ("vst.variance.standardized" %in% colnames(hvg_info)) {
           top_hvgs <- hvg_info %>%
             arrange(desc(vst.variance.standardized)) %>%
@@ -24247,6 +24464,172 @@ updateUtilitiesAssays()
     })
     })
 
+# Function to update geneNameColumnSelect
+updateGeneNameColumnSelect <- function() {
+  if (!is.null(seurat_object)) {
+    tryCatch({
+      assay_name <- DefaultAssay(seurat_object)
+      meta_features <- get_meta_features(seurat_object, assay_name)
+
+      message(paste("updateGeneNameColumnSelect: meta_features has", ncol(meta_features), "columns"))
+      message(paste("  Column names:", paste(colnames(meta_features), collapse = ", ")))
+
+      if (!is.null(meta_features) && ncol(meta_features) > 0) {
+        # Get character/factor columns that could contain gene names
+        valid_cols <- sapply(meta_features, function(x) {
+          is.character(x) || is.factor(x)
+        })
+        col_names <- colnames(meta_features)[valid_cols]
+        message(paste("  Valid columns (character/factor):", paste(col_names, collapse = ", ")))
+
+        if (length(col_names) > 0) {
+          choices <- c("(none)" = "none", setNames(col_names, col_names))
+          updateSelectInput(session, "geneNameColumnSelect", choices = choices)
+          message(paste("  Updated selectInput with", length(col_names), "choices"))
+        } else {
+          updateSelectInput(session, "geneNameColumnSelect", choices = c("(none)" = "none"))
+          message("  No valid columns found - reset to none")
+        }
+      } else {
+        updateSelectInput(session, "geneNameColumnSelect", choices = c("(none)" = "none"))
+        message("  meta_features is NULL or empty")
+      }
+    }, error = function(e) {
+      message(paste("Error updating geneNameColumnSelect:", e$message))
+    })
+  }
+}
+
+# Set column from meta.features as rownames
+observeEvent(input$confirmColumnToRownames, {
+  tryCatch({
+    if (identical(seurat_object, NULL)) {
+      session$sendCustomMessage("handler_alert", "Please, upload some data via the DATA INPUT tab first.")
+      return()
+    }
+
+    selected_column <- input$geneNameColumnSelect
+    if (is.null(selected_column) || selected_column == "none") {
+      showNotification("Please select a column first.", type = "warning")
+      return()
+    }
+
+    showModal(modalDialog(div('Converting gene names...', style='color:#ffffff; background-color:#222d32;'), footer = NULL, style = 'font-size:20px; text-align:center;position:absolute;'))
+
+    assay_name <- DefaultAssay(seurat_object)
+    message("\n=== Setting column as rownames ===")
+    message(paste("Selected column:", selected_column))
+
+    # Get meta.features
+    meta_features <- get_meta_features(seurat_object, assay_name)
+
+    if (!selected_column %in% colnames(meta_features)) {
+      removeModal()
+      showNotification(paste("Column", selected_column, "not found"), type = "error")
+      return()
+    }
+
+    # Get gene symbols from selected column
+    gene_symbols <- as.character(meta_features[[selected_column]])
+    message(paste("Total genes:", length(gene_symbols)))
+    message(paste("First 5 gene symbols:", paste(head(gene_symbols, 5), collapse = ", ")))
+
+    # Convert underscores to dots to avoid Seurat's _ to - conversion
+    # (Seurat converts _ to - during NormalizeData, which can cause collisions with genes containing -)
+    gene_symbols_dot <- str_replace_all(gene_symbols, '_', '.')
+
+    # Check for duplicates after conversion
+    num_duplicates <- sum(duplicated(gene_symbols_dot))
+    message(paste("Duplicates found (after _ to . conversion):", num_duplicates))
+
+    # Make unique with "." separator
+    if (num_duplicates > 0) {
+      gene_symbols_rownames <- make.unique(gene_symbols_dot, sep = ".")
+      message("Added .1, .2 suffixes to duplicates")
+    } else {
+      gene_symbols_rownames <- gene_symbols_dot
+    }
+
+    # Update rownames using v4 conversion approach
+    if (is_assay5(seurat_object, assay_name)) {
+      message("Assay5 detected - converting to Assay v4 for renaming")
+
+      assay5_obj <- seurat_object[[assay_name]]
+      assay4_obj <- as(assay5_obj, "Assay")
+
+      # Update rownames (use "-" version for Seurat compatibility)
+      if (nrow(assay4_obj@counts) > 0) {
+        rownames(assay4_obj@counts) <- gene_symbols_rownames
+      }
+      if (nrow(assay4_obj@data) > 0) {
+        rownames(assay4_obj@data) <- gene_symbols_rownames
+      }
+      if (nrow(assay4_obj@scale.data) > 0) {
+        rownames(assay4_obj@scale.data) <- gene_symbols_rownames
+      }
+
+      # Update meta.features
+      assay4_obj@meta.features <- data.frame(
+        orig.gene.symbol = gene_symbols,  # 元の遺伝子名（_あり）
+        gene.symbol = gene_symbols,       # aggregateで使用（_あり）
+        row.names = gene_symbols_rownames # Seurat互換（-版）
+      )
+
+      # Convert back to Assay5
+      new_assay5 <- as(assay4_obj, "Assay5")
+      seurat_object[[assay_name]] <<- new_assay5
+
+    } else {
+      # Assay v4
+      if (nrow(seurat_object@assays[[assay_name]]@counts) > 0) {
+        rownames(seurat_object@assays[[assay_name]]@counts) <<- gene_symbols_rownames
+      }
+      if (nrow(seurat_object@assays[[assay_name]]@data) > 0) {
+        rownames(seurat_object@assays[[assay_name]]@data) <<- gene_symbols_rownames
+      }
+      if (nrow(seurat_object@assays[[assay_name]]@scale.data) > 0) {
+        rownames(seurat_object@assays[[assay_name]]@scale.data) <<- gene_symbols_rownames
+      }
+
+      seurat_object@assays[[assay_name]]@meta.features <<- data.frame(
+        orig.gene.symbol = gene_symbols,  # 元の遺伝子名（_あり）
+        gene.symbol = gene_symbols,       # aggregateで使用（_あり）
+        row.names = gene_symbols_rownames # Seurat互換（-版）
+      )
+    }
+
+    # Clear VariableFeatures
+    if (length(VariableFeatures(seurat_object)) > 0) {
+      VariableFeatures(seurat_object) <<- character(0)
+      message("Cleared VariableFeatures")
+    }
+
+    # Update UI
+    updateMetadata()
+    updateGeneSearchFP()
+
+    removeModal()
+
+    showNotification(
+      HTML(paste0(
+        "<b>Gene names updated!</b><br>",
+        "Column: ", selected_column, "<br>",
+        "Genes: ", length(gene_symbols), "<br>",
+        "Duplicates: ", num_duplicates, " (renamed with _1, _2, ...)"
+      )),
+      type = "message",
+      duration = 10
+    )
+
+    message("=== Gene name conversion complete ===")
+
+  }, error = function(e) {
+    removeModal()
+    showNotification(paste("Error:", e$message), type = "error", duration = 30)
+    message(paste("Error in confirmColumnToRownames:", e$message))
+  })
+})
+
 # Gene conversion from Ensembl ID to gene symbol
 observeEvent(input$confirmGeneConversion, {
   tryCatch({
@@ -24487,9 +24870,21 @@ observeEvent(input$confirmGeneConversion, {
             new_assay <- SetAssayData(new_assay, layer = "scale.data", new.data = new_scale_data)
           }
           
-          # Update meta.features
-          if (!is.null(current_assay@meta.features) && nrow(current_assay@meta.features) > 0) {
-            meta_features <- current_assay@meta.features
+          # Update meta.features (Assay5対応)
+          # Assay5では@meta.data、v4では@meta.featuresを使用
+          old_meta_features <- NULL
+          if (inherits(current_assay, "Assay5")) {
+            if (!is.null(current_assay@meta.data) && nrow(current_assay@meta.data) > 0) {
+              old_meta_features <- current_assay@meta.data
+            }
+          } else {
+            if (!is.null(current_assay@meta.features) && nrow(current_assay@meta.features) > 0) {
+              old_meta_features <- current_assay@meta.features
+            }
+          }
+
+          if (!is.null(old_meta_features)) {
+            meta_features <- old_meta_features
             # Use the features from whatever slot exists
             features_to_use <- if (has_counts) counts_features else if (has_data) data_features else scale_features
             if (all(rownames(meta_features) %in% features_to_use)) {
@@ -24497,6 +24892,7 @@ observeEvent(input$confirmGeneConversion, {
               # Replace underscores with dashes to match Seurat's behavior
               new_meta_names <- gsub("_", "-", new_meta_names)
               rownames(meta_features) <- new_meta_names
+              # new_assayはCreateAssayObjectで作成されるのでAssay v4
               new_assay@meta.features <- meta_features
             }
           }

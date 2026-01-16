@@ -332,7 +332,17 @@ ui <- dashboardPage(
                                        tags$h3("OR use a server H5AD file"),
                                        shinyFilesButton('localH5ADfile', label='Choose an H5AD file on server', title='Select H5AD file', multiple=FALSE),
                                        actionButton(inputId = "uploadLocalAnndataConfirm", label = "Load server H5AD",class="btn btn-warning"),
-                                       checkboxInput("h5addecimal", strong("Counts include decimals"), FALSE),
+
+                                       tags$hr(),
+                                       # ============================================================
+                                       # H5AD File Structure Options
+                                       # h5adファイルの構造に関するオプション
+                                       # ============================================================
+                                       tags$h4(
+                                         tags$strong("H5AD File Structure Options"),
+                                         actionLink("h5adStructureHelp", icon("question-circle"), style = "margin-left: 8px;")
+                                       ),
+                                       checkboxInput("h5adXtoCounts", strong("Load X as counts"), FALSE),
 
                                        tags$hr(),
                                        tags$h3("Convert gene names"),
@@ -343,8 +353,8 @@ ui <- dashboardPage(
 
                                        tags$hr(),
                                        tags$h3("Aggregate duplicate genes"),
-                                       tags$h5("If gene names have duplicates (e.g., Gene_1, Gene_2 from make.unique), aggregate them."),
-                                       tags$p("This will average counts/data for duplicate genes and remove suffix (_1, _2, etc.)."),
+                                       tags$h5("Aggregate genes with duplicate symbols using the 'gene.symbol' column."),
+                                       tags$p("This function uses the 'gene.symbol' column in meta.features (original gene names before make.unique) to identify and aggregate duplicates. Rownames will be updated to unique gene symbols."),
                                        radioButtons("aggregateDuplicatesMethod",
                                                    label = "Aggregation method:",
                                                    choices = list("Mean counts/data" = "mean",
@@ -1575,32 +1585,53 @@ tags$h5('https://genomebiology.biomedcentral.com/articles/10.1186/s13059-019-185
                       )
                )),
                
-               tabPanel("Gene conversion", fluidRow(
-                 box(status = "info", solidHeader = TRUE, title = "Convert Ensembl IDs to Gene Symbols", width = 12,
-                     p("Convert Ensembl IDs to gene symbols using biomaRt. This will update gene names in your Seurat object."),
+               tabPanel("Ensembl to Gene Symbol", fluidRow(
+                 box(status = "info", solidHeader = TRUE, title = "Convert Gene Names", width = 12,
+
+                     # Option 1: Use column from meta.features
+                     tags$h4("Option 1: Use column from meta.features"),
+                     p("Select a column containing gene names (e.g., gene_short_name, gene_name) to set as rownames."),
+                     selectInput(inputId = "geneNameColumnSelect",
+                                label = "Select gene name column:",
+                                choices = c("(none)" = "none"),
+                                selected = "none"),
+                     p(strong("Duplicate handling:"), "make.unique() is used. Original names stored in 'gene.symbol' column."),
+                     actionButton(inputId = "confirmColumnToRownames",
+                                 label = "Set column as rownames",
+                                 class = "btn btn-info"),
+
                      tags$hr(),
-                     selectInput(inputId = "conversionOrganism", 
-                                label = "Organism:", 
+
+                     # Option 2: Ensembl ID conversion
+                     tags$h4("Option 2: Convert Ensembl IDs using database"),
+                     p("Use this when rownames are Ensembl IDs (ENSG.../ENSMUSG...)."),
+                     p(tags$small("Uses local database (db/human_genes.csv or db/mouse_genes.csv). Version numbers (.1, .2) are automatically removed.")),
+                     selectInput(inputId = "conversionOrganism",
+                                label = "Organism:",
                                 choices = c("Mouse" = "mouse", "Human" = "human"),
                                 selected = "mouse"),
-                     checkboxInput("updateGeneNames", 
-                                  label = "Update gene names in expression matrix", 
+                     checkboxInput("updateGeneNames",
+                                  label = "Update gene names in expression matrix",
                                   value = TRUE),
-                     tags$hr(),
-                     actionButton(inputId = "confirmGeneConversion", 
-                                 label = "Convert Ensembl IDs to Gene Symbols", 
+                     actionButton(inputId = "confirmGeneConversion",
+                                 label = "Convert Ensembl IDs to Gene Symbols",
                                  class = "btn btn-warning"),
-                     tags$hr()
-                 ),
-                 box(status = "success", solidHeader = TRUE, title = "Species Gene Conversion", width = 12,
+
+                     tags$hr(),
+                     tags$p(tags$small(tags$em("To aggregate duplicates after conversion, use 'Aggregate duplicate genes' in the H5AD/Anndata section.")))
+                 )
+               )),
+
+               tabPanel("Species Gene Conversion", fluidRow(
+                 box(status = "success", solidHeader = TRUE, title = "Species Gene Conversion (Mouse ↔ Human)", width = 12,
                      p("Convert gene symbols between mouse and human orthologs. Genes without conversion will be removed, and duplicate genes will be averaged."),
                      tags$hr(),
                      p(strong("Conversion Direction:"), "Based on current organism setting"),
-                     selectInput(inputId = "speciesConversionMethod", 
-                                label = "Conversion Database:", 
+                     selectInput(inputId = "speciesConversionMethod",
+                                label = "Conversion Database:",
                                 choices = c("NichenetR v1 (original)" = "nichenetr_v1_original",
                                            "NichenetR v1 (corrected)" = "nichenetr_v1_corrected",
-                                           "NichenetR v2 (original)" = "nichenetr_v2_original", 
+                                           "NichenetR v2 (original)" = "nichenetr_v2_original",
                                            "NichenetR v2 (corrected)" = "nichenetr_v2_corrected",
                                            "Consensus (original)" = "consensus_original",
                                            "Consensus (corrected)" = "consensus_corrected"),
@@ -1614,8 +1645,8 @@ tags$h5('https://genomebiology.biomedcentral.com/articles/10.1186/s13059-019-185
                        tags$li("Corrected: Functional corrections applied (Ccl2→CCL2, Ccl3→CCL3, Cxcl1→CXCL1)")
                      ),
                      tags$hr(),
-                     actionButton(inputId = "confirmSpeciesConversion", 
-                                 label = "Convert Between Species", 
+                     actionButton(inputId = "confirmSpeciesConversion",
+                                 label = "Convert Between Species",
                                  class = "btn btn-success"),
                      tags$hr()
                  )

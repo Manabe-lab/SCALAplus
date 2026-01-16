@@ -1275,8 +1275,8 @@ Zissou1Continuous = c("#3A9AB2", "#6FB2C1", "#91BAB6", "#A5C2A3", "#BDC881", "#D
 
 # conversion _,-の変換によるduplicate形成に対応
 
-anndata2seurat <- function(inFile, outFile = NULL, main_layer = "counts", assay = "RNA", use_seurat = FALSE, 
-                           lzf = FALSE, target_uns_keys = list()) {
+anndata2seurat <- function(inFile, outFile = NULL, main_layer = "counts", assay = "RNA", use_seurat = FALSE,
+                           lzf = FALSE, target_uns_keys = list(), x_to_counts = FALSE) {
   if (!requireNamespace("Seurat")) {
     stop("This function requires the 'Seurat' package.")
   }
@@ -1310,9 +1310,9 @@ anndata2seurat <- function(inFile, outFile = NULL, main_layer = "counts", assay 
 
     # seuratへの読み込みの際に、_を-に変換するときにduplicate nameになるときの対応
 names <- row.names(var_df)
-new_names <- str_replace(names, '_', '-')
+new_names <- str_replace_all(names, '_', '-')
 if (sum(duplicated(new_names)) >0 ){
-new_names <- make.unique(new_names)
+new_names <- make.unique(new_names, sep = ".")
 }
 row.names(var_df) <- new_names
 
@@ -1324,6 +1324,24 @@ row.names(var_df) <- new_names
     colnames(X) <- rownames(obs_df)
     rownames(X) <- rownames(var_df)
 
+    # Check for layers['counts'] in adata.layers
+    layers_counts <- NULL
+    tryCatch({
+      layer_keys <- reticulate::py_to_r(ad$layers$keys())
+      if ("counts" %in% layer_keys) {
+        message("Found 'counts' layer in adata.layers")
+        if (reticulate::py_to_r(sp$issparse(ad$layers["counts"]))) {
+          layers_counts <- Matrix::t(reticulate::py_to_r(sp$csc_matrix(ad$layers["counts"])))
+        } else {
+          layers_counts <- t(reticulate::py_to_r(ad$layers["counts"]))
+        }
+        colnames(layers_counts) <- rownames(obs_df)
+        rownames(layers_counts) <- rownames(var_df)
+      }
+    }, error = function(e) {
+      message(paste("No layers found or error accessing layers:", e$message))
+    })
+
     if (!is.null(reticulate::py_to_r(ad$raw))) {
       raw_var_df <- .var2feature_metadata(ad$raw$var)
       raw_X <- Matrix::t(reticulate::py_to_r(sp$csc_matrix(ad$raw$X)))
@@ -1334,25 +1352,36 @@ row.names(var_df) <- new_names
       raw_X <- NULL
     }
 
-    if (main_layer == "scale.data" && !is.null(raw_X)) {
-      assays <- list(Seurat::CreateAssayObject(data = raw_X))
-      assays[[1]] <- Seurat::SetAssayData(assays[[1]], layer = "scale.data", new.data = X)
-      message("X -> scale.data; raw.X -> data")
-    } else if (main_layer == "data" && !is.null(raw_X)) {
-      if (nrow(X) != nrow(raw_X)) {
-        message("Raw layer was found with different number of genes than main layer, resizing X and raw.X to match dimensions")
-        raw_X <- raw_X[rownames(raw_X) %in% rownames(X), , drop = F]
-        X <- X[rownames(raw_X), , drop = F]
-      }
-      assays <- list(Seurat::CreateAssayObject(counts = raw_X))
-      assays[[1]] <- Seurat::SetAssayData(assays[[1]], layer = "data", new.data = X)
-      message("X -> data; raw.X -> counts")
-    } else if (main_layer == "counts") {
+    # Simplified logic for h5ad loading:
+    # x_to_counts = TRUE:  X -> counts (data = copy of counts)
+    # x_to_counts = FALSE: X -> data only, counts from layers['counts'] or raw.X if available
+
+    if (x_to_counts) {
+      # User explicitly wants X as counts
       assays <- list(Seurat::CreateAssayObject(counts = X))
-      message("X -> counts")
+      message("X -> counts (x_to_counts=TRUE, data = copy of counts)")
     } else {
-      assays <- list(Seurat::CreateAssayObject(data = X))
-      message("X -> data")
+      # X -> data only, counts from other sources
+      if (!is.null(layers_counts)) {
+        # layers['counts'] -> counts, X -> data
+        assays <- list(Seurat::CreateAssayObject(counts = layers_counts))
+        assays[[1]] <- Seurat::SetAssayData(assays[[1]], layer = "data", new.data = X)
+        message("X -> data; layers['counts'] -> counts")
+      } else if (!is.null(raw_X)) {
+        # raw.X -> counts, X -> data
+        if (nrow(X) != nrow(raw_X)) {
+          message("Raw layer has different genes than X, resizing to match")
+          raw_X <- raw_X[rownames(raw_X) %in% rownames(X), , drop = F]
+          X <- X[rownames(raw_X), , drop = F]
+        }
+        assays <- list(Seurat::CreateAssayObject(counts = raw_X))
+        assays[[1]] <- Seurat::SetAssayData(assays[[1]], layer = "data", new.data = X)
+        message("X -> data; raw.X -> counts")
+      } else {
+        # No counts source available, X -> data only (counts = NULL)
+        assays <- list(Seurat::CreateAssayObject(data = X))
+        message("X -> data only (no counts available)")
+      }
     }
     names(assays) <- assay
     Seurat::Key(assays[[assay]]) <- paste0(tolower(assay), "_")
@@ -1452,12 +1481,36 @@ row.names(var_df) <- new_names
 }
 
 
-is_assay5 <- function(seurat_object) {
-  # Get the default assay
-  default_assay <- DefaultAssay(seurat_object)
+is_assay5 <- function(seurat_object, assay_name = NULL) {
+  if (is.null(assay_name)) {
+    assay_name <- DefaultAssay(seurat_object)
+  }
+  return(inherits(seurat_object[[assay_name]], "Assay5"))
+}
 
-  # Check the class of the assay object
-  return(inherits(seurat_object[[default_assay]], "Assay5"))
+# Helper: get meta.features (Assay5 uses @meta.data, Assay v4 uses @meta.features)
+get_meta_features <- function(seurat_object, assay_name = NULL) {
+  if (is.null(assay_name)) {
+    assay_name <- DefaultAssay(seurat_object)
+  }
+  if (inherits(seurat_object[[assay_name]], "Assay5")) {
+    return(seurat_object[[assay_name]]@meta.data)
+  } else {
+    return(seurat_object[[assay_name]]@meta.features)
+  }
+}
+
+# Helper: set meta.features
+set_meta_features <- function(seurat_object, meta_features_df, assay_name = NULL) {
+  if (is.null(assay_name)) {
+    assay_name <- DefaultAssay(seurat_object)
+  }
+  if (inherits(seurat_object[[assay_name]], "Assay5")) {
+    seurat_object[[assay_name]]@meta.data <- meta_features_df
+  } else {
+    seurat_object[[assay_name]]@meta.features <- meta_features_df
+  }
+  return(seurat_object)
 }
 
 
