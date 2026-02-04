@@ -3148,6 +3148,8 @@ meta_data <-  names(seurat_object@meta.data)
       validation_warnings <- c()
       commands_cleaned <- FALSE
       old_commands <- character()
+      has_counts <- FALSE
+      has_data <- FALSE
 
       withProgress(message = 'Aggregating genes', value = 0, {
 
@@ -3255,12 +3257,12 @@ meta_data <-  names(seurat_object@meta.data)
       # Use Assay v4 for aggregation (either converted or original)
       if (is_v5) {
         # Work on converted Assay v4
-        has_counts <- nrow(assay4_obj@counts) > 0
-        has_data <- nrow(assay4_obj@data) > 0
+        has_counts <<- nrow(assay4_obj@counts) > 0
+        has_data <<- nrow(assay4_obj@data) > 0
         has_scale <- nrow(assay4_obj@scale.data) > 0
       } else {
-        has_counts <- nrow(seurat_object@assays[[assay_name]]@counts) > 0
-        has_data <- nrow(seurat_object@assays[[assay_name]]@data) > 0
+        has_counts <<- nrow(seurat_object@assays[[assay_name]]@counts) > 0
+        has_data <<- nrow(seurat_object@assays[[assay_name]]@data) > 0
         has_scale <- nrow(seurat_object@assays[[assay_name]]@scale.data) > 0
       }
 
