@@ -14556,7 +14556,13 @@ print(seurat_object@active.assay)
   print('non pagoda2')
   print(seurat_object@active.assay)
 
-  scaled_genes <- rownames(seurat_object[[seurat_object@active.assay ]]@scale.data)
+  # v5対応: GetAssayDataを使用
+  scale_data <- tryCatch({
+    Seurat::GetAssayData(seurat_object, assay = seurat_object@active.assay, layer = "scale.data")
+  }, error = function(e) {
+    Seurat::GetAssayData(seurat_object, assay = seurat_object@active.assay, slot = "scale.data")
+  })
+  scaled_genes <- rownames(scale_data)
   missing_genes <- setdiff(top10genes, scaled_genes)
 
   if (length(missing_genes) > 0) {
@@ -15209,9 +15215,14 @@ observeEvent(input$heatmapConfirm, {
         # Use pheatmap for clustering
         showNotification("Using pheatmap for clustering visualization")
 
-        # Extract expression data
+        # Extract expression data (v5対応: GetAssayDataを使用)
         if (input$heatmapSlot == "scale.data") {
-          scaled_genes <- rownames(seurat_object[[seurat_object@active.assay]]@scale.data)
+          scale_data <- tryCatch({
+            Seurat::GetAssayData(seurat_object, assay = seurat_object@active.assay, layer = "scale.data")
+          }, error = function(e) {
+            Seurat::GetAssayData(seurat_object, assay = seurat_object@active.assay, slot = "scale.data")
+          })
+          scaled_genes <- rownames(scale_data)
           missing_genes <- setdiff(genes_to_plot, scaled_genes)
 
           if (length(missing_genes) > 0) {
@@ -15221,11 +15232,22 @@ observeEvent(input$heatmapConfirm, {
               features = missing_genes,
               verbose = FALSE
             )
+            # Re-fetch after scaling
+            scale_data <- tryCatch({
+              Seurat::GetAssayData(seurat_object, assay = seurat_object@active.assay, layer = "scale.data")
+            }, error = function(e) {
+              Seurat::GetAssayData(seurat_object, assay = seurat_object@active.assay, slot = "scale.data")
+            })
           }
-          expr_data <- as.matrix(seurat_object[[seurat_object@active.assay]]@scale.data[genes_to_plot, , drop = FALSE])
+          expr_data <- as.matrix(scale_data[genes_to_plot, , drop = FALSE])
         } else {
-          # Use data slot
-          expr_data <- as.matrix(seurat_object[[seurat_object@active.assay]]@data[genes_to_plot, , drop = FALSE])
+          # Use data slot (v5対応)
+          data_mat <- tryCatch({
+            Seurat::GetAssayData(seurat_object, assay = seurat_object@active.assay, layer = "data")
+          }, error = function(e) {
+            Seurat::GetAssayData(seurat_object, assay = seurat_object@active.assay, slot = "data")
+          })
+          expr_data <- as.matrix(data_mat[genes_to_plot, , drop = FALSE])
         }
 
         # Downsample if requested
@@ -15286,9 +15308,14 @@ observeEvent(input$heatmapConfirm, {
           showNotification("Large heatmap detected, using rasterization.")
         }
 
-        # If using scale.data, ensure genes are scaled
+        # If using scale.data, ensure genes are scaled (v5対応)
         if (input$heatmapSlot == "scale.data") {
-          scaled_genes <- rownames(seurat_object[[seurat_object@active.assay]]@scale.data)
+          scale_data <- tryCatch({
+            Seurat::GetAssayData(seurat_object, assay = seurat_object@active.assay, layer = "scale.data")
+          }, error = function(e) {
+            Seurat::GetAssayData(seurat_object, assay = seurat_object@active.assay, slot = "scale.data")
+          })
+          scaled_genes <- rownames(scale_data)
           missing_genes <- setdiff(genes_to_plot, scaled_genes)
 
           if (length(missing_genes) > 0) {
@@ -25070,16 +25097,21 @@ observeEvent(input$confirmSpeciesConversion, {
     print(paste("Conversion direction:", stringr::str_to_title(current_organism), "→", target_species_label))
     print(paste("Conversion method:", input$speciesConversionMethod))
     
-    # Check if counts data exists in the active assay
+    # Check if counts data exists in the active assay (v5対応)
     active_assay <- DefaultAssay(seurat_object)
-    if (is.null(seurat_object@assays[[active_assay]]@counts) || nrow(seurat_object@assays[[active_assay]]@counts) == 0) {
+    counts_data <- tryCatch({
+      Seurat::GetAssayData(seurat_object, assay = active_assay, layer = "counts")
+    }, error = function(e) {
+      Seurat::GetAssayData(seurat_object, assay = active_assay, slot = "counts")
+    })
+    if (is.null(counts_data) || nrow(counts_data) == 0) {
       showNotification("Error: No counts data found in active assay. Species conversion requires raw count data.", type = "error", duration = 20)
       removeModal()
       return()
     }
-    
-    # Get gene names from the active assay
-    current_genes <- rownames(seurat_object@assays[[active_assay]]@counts)
+
+    # Get gene names from the active assay (v5対応)
+    current_genes <- rownames(counts_data)
     total_genes <- length(current_genes)
     
     # Convert gene names once for all assays
@@ -25201,7 +25233,13 @@ observeEvent(input$confirmSpeciesConversion, {
     # Set the default assay
     Seurat::DefaultAssay(seurat_object) <<- active_assay
     
-    print(paste("New assay created with dimensions:", paste(dim(seurat_object@assays[[active_assay]]@counts), collapse = " x ")))
+    # v5対応: GetAssayDataを使用
+    new_counts <- tryCatch({
+      Seurat::GetAssayData(seurat_object, assay = active_assay, layer = "counts")
+    }, error = function(e) {
+      Seurat::GetAssayData(seurat_object, assay = active_assay, slot = "counts")
+    })
+    print(paste("New assay created with dimensions:", paste(dim(new_counts), collapse = " x ")))
     
     # Update utility functions
     updateGeneSearchFP()
