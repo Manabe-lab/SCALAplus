@@ -24921,8 +24921,12 @@ observeEvent(input$confirmGeneConversion, {
               # Replace underscores with dashes to match Seurat's behavior
               new_meta_names <- gsub("_", "-", new_meta_names)
               rownames(meta_features) <- new_meta_names
-              # new_assayはCreateAssayObjectで作成されるのでAssay v4
-              new_assay@meta.features <- meta_features
+              # v5対応: Assay5では@meta.data、v4では@meta.features
+              if (inherits(new_assay, "Assay5")) {
+                new_assay@meta.data <- meta_features
+              } else {
+                new_assay@meta.features <- meta_features
+              }
             }
           }
           
