@@ -670,7 +670,16 @@ observeEvent(input$uploadCountMatrixConfirm, {
       minimum_features <<- input$uploadCountMatrixminFeatures
       organism <<- input$uploadCountMatrixRadioSpecies
       updateSpecies()
-      
+
+      # Set Seurat assay version based on user selection
+      assay_version <- ifelse(is.null(input$uploadCountMatrixAssayVersion), "v5", input$uploadCountMatrixAssayVersion)
+      if (assay_version == "v4") {
+        options(Seurat.object.assay.version = "v3")
+      } else {
+        options(Seurat.object.assay.version = "v5")
+      }
+      showNotification(paste("Creating Seurat object with Assay", assay_version))
+
       if(organism == "mouse") {
         showNotification("Species is mouse")
       } else {
@@ -907,6 +916,16 @@ observeEvent(input$uploadCountMatrixConfirm, {
         minimum_features <<- input$upload10xRNAminFeatures
         organism <<- input$uploadCountMatrixRadioSpecies
         updateSpecies()
+
+        # Set Seurat assay version based on user selection
+        assay_version <- ifelse(is.null(input$upload10xRNAAssayVersion), "v5", input$upload10xRNAAssayVersion)
+        if (assay_version == "v4") {
+          options(Seurat.object.assay.version = "v3")
+        } else {
+          options(Seurat.object.assay.version = "v5")
+        }
+        showNotification(paste("Creating Seurat object with Assay", assay_version))
+
         if (organism == 'mouse') {
                     showNotification("Species is mouse")
               } else {
@@ -1111,6 +1130,16 @@ showNotification("Add the selected forlder")
         minimum_features <<- input$upload10xRNAminFeatures
         organism <<- input$uploadCountMatrixRadioSpecies
         updateSpecies()
+
+        # Set Seurat assay version based on user selection (same as 10x panel)
+        assay_version <- ifelse(is.null(input$upload10xRNAAssayVersion), "v5", input$upload10xRNAAssayVersion)
+        if (assay_version == "v4") {
+          options(Seurat.object.assay.version = "v3")
+        } else {
+          options(Seurat.object.assay.version = "v5")
+        }
+        showNotification(paste("Creating Seurat object with Assay", assay_version))
+
         if (organism == 'mouse') {
                     showNotification("Species is mouse")
               } else {
@@ -1491,6 +1520,16 @@ library(DropletUtils)
         minimum_features <<- input$uploadCellBenderminFeatures
         organism <<- input$uploadCellBenderSpecies
         updateSpecies()
+
+        # Set Seurat assay version based on user selection
+        assay_version <- ifelse(is.null(input$uploadCellBenderAssayVersion), "v5", input$uploadCellBenderAssayVersion)
+        if (assay_version == "v4") {
+          options(Seurat.object.assay.version = "v3")
+        } else {
+          options(Seurat.object.assay.version = "v5")
+        }
+        showNotification(paste("Creating Seurat object with Assay", assay_version))
+
         if (organism == 'mouse') {
                     showNotification("Species is mouse")
               } else {

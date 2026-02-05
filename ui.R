@@ -218,6 +218,10 @@ ui <- dashboardPage(
                                                                    "Homo sapiens (Human)" = "human"
                                                     ),
                                                     selected = "mouse"),
+                                       radioButtons("uploadCountMatrixAssayVersion", label = "Seurat Assay version:",
+                                                    choices = list("v5 (recommended)" = "v5",
+                                                                   "v4 (legacy)" = "v4"),
+                                                    selected = "v5", inline = TRUE),
                                        actionButton(inputId = "uploadCountMatrixConfirm", label = "Submit",class="btn btn-warning"),
 
 
@@ -238,6 +242,10 @@ ui <- dashboardPage(
                                                                  choices = list("Mus musculus (Mouse)" = "mouse",
                                                                                 "Homo sapiens (Human)" = "human"
                                                                  ), selected = "mouse"),
+                                       radioButtons("upload10xRNAAssayVersion", label = "Seurat Assay version:",
+                                                    choices = list("v5 (recommended)" = "v5",
+                                                                   "v4 (legacy)" = "v4"),
+                                                    selected = "v5", inline = TRUE),
                                        actionButton(inputId = "upload10xRNAConfirm", label = "Submit",class="btn btn-warning"),
                                        tags$hr(),
                                        tags$h3("OR use 10x files on the server"),
@@ -290,6 +298,10 @@ ui <- dashboardPage(
                                                                  choices = list("Mus musculus (Mouse)" = "mouse",
                                                                                 "Homo sapiens (Human)" = "human"
                                                                  ), selected = "mouse"),
+                                       radioButtons("uploadCellBenderAssayVersion", label = "Seurat Assay version:",
+                                                    choices = list("v5 (recommended)" = "v5",
+                                                                   "v4 (legacy)" = "v4"),
+                                                    selected = "v5", inline = TRUE),
                                        actionButton(inputId = "uploadCellBenderConfirm", label = "Submit",class="btn btn-warning"),
 
                                        tags$hr(),
