@@ -361,18 +361,21 @@ ui <- dashboardPage(
                                        # COMPASS metabolic analysis data
                                        # COMPASSデータの読み込みについて
                                        # ============================================================
-                                       tags$h4(tags$strong("COMPASS metabolic analysis data")),
-                                       tags$div(
-                                         style = "background-color: #f0f7ff; padding: 10px; border-radius: 5px; margin-bottom: 10px;",
-                                         tags$p(tags$strong("metisでCOMPASS解析を行った場合:")),
-                                         tags$ul(
-                                           tags$li("COMPASS h5adファイルを通常のh5adとして読み込み可能"),
-                                           tags$li("反応(reactions)が「遺伝子」として扱われる"),
-                                           tags$li("COMPASSスコアはdata slotに格納される"),
-                                           tags$li(tags$strong("「Load X as counts」はチェックしない"), "（スコアは正規化済み）"),
-                                           tags$li("FeaturePlot, VlnPlot, FindMarkers等で解析可能")
-                                         ),
-                                         tags$p(tags$small("Reference: Wagner et al. (2021) Cell"))
+                                       checkboxInput("h5adCompassData", tags$strong("COMPASS metabolic analysis data"), FALSE),
+                                       conditionalPanel(
+                                         condition = "input.h5adCompassData == true",
+                                         tags$div(
+                                           style = "background-color: #f0f7ff; padding: 10px; border-radius: 5px; margin-bottom: 10px;",
+                                           tags$p(tags$strong("metisでCOMPASS解析を行った場合:")),
+                                           tags$ul(
+                                             tags$li("COMPASS h5adファイルを通常のh5adとして読み込み可能"),
+                                             tags$li("反応(reactions)が「遺伝子」として扱われる"),
+                                             tags$li("COMPASSスコアはdata slotに格納される"),
+                                             tags$li(tags$em("「Load X as counts」は自動的にOFFになります"), "（スコアは正規化済み）"),
+                                             tags$li("FeaturePlot, VlnPlot, FindMarkers等で解析可能")
+                                           ),
+                                           tags$p(tags$small("Reference: Wagner et al. (2021) Cell"))
+                                         )
                                        ),
 
                                        tags$hr(),

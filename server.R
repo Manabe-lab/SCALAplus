@@ -2596,6 +2596,14 @@ meta_data <-  names(seurat_object@meta.data)
     ))
   })
 
+  # COMPASS data checkbox - automatically uncheck "Load X as counts"
+  observeEvent(input$h5adCompassData, {
+    if (input$h5adCompassData) {
+      updateCheckboxInput(session, "h5adXtoCounts", value = FALSE)
+      showNotification("COMPASS data: 'Load X as counts' is automatically unchecked", type = "message", duration = 3)
+    }
+  })
+
   observeEvent(c(input$uploadSeuratAnndataConfirm, input$uploadLocalAnndataConfirm), {
        if (!is.null(input$uploadSeuratAnndataConfirm) & !is.null(input$uploadLocalAnndataConfirm)) {
       if (input$uploadSeuratAnndataConfirm >0 | input$uploadLocalAnndataConfirm > 0) {
