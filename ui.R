@@ -1525,6 +1525,17 @@ tags$h5('https://genomebiology.biomedcentral.com/articles/10.1186/s13059-019-185
                                                     tags$hr(),
                  checkboxInput("ALRAIndividual", label= "Run ALRA on each sample individually for merged data.", value = FALSE, width = NULL),
                 selectInput(inputId = "BatchIdent3", label = "Choose identity for samples if you RUN ALRA separetely", c("Cluster" = "orig.ident")),
+                tags$details(
+                  tags$summary(tags$b("ALRAバッチ分割の判断ガイド（クリックで展開）")),
+                  tags$ul(
+                    tags$li(tags$b("一般則は未確立"), "：merge後ALRA vs バッチ別ALRAの体系的比較研究は存在しない"),
+                    tags$li(tags$b("原著はmerge後ALRA"), "：Linderman et al. 2022の全例が「merge→正規化→ALRA」の手順"),
+                    tags$li(tags$b("異質な集団にはsplit有効"), "：Valyaeva et al. 2026が細胞タイプ別ALRA戦略を提示（non-zero fraction目的）"),
+                    tags$li(tags$b("条件差マスクの報告あり"), "：GitHub Issue #5で「treatment/control差が潰れる」との観察（ただし単一ユーザー、未検証）"),
+                    tags$li(tags$b("実務的結論"), "：条件×バッチが交絡していなければmerge後ALRAで開始、交絡がある or 条件差が最重要なら両方試して比較（logFC、擬似バルク整合性等で判定）")
+                  )
+                ),
+                tags$hr(),
                 tags$h3("MAGIC"),
                     tags$hr(),
                 numericInput(inputId = "MAGICknn", label = "Knn:", min = 1, value = 5),
