@@ -25472,6 +25472,8 @@ content = function(file){
   print(zip_name)
   myDir = tempdir() # temporary folderがどこかを得る
   withProgress(message = 'Zipping files...', value = 1, {
+    # cell metadataをscenic/に書き出す（metis SCENIC network analysis 2等で使用）
+    write.table(seurat_object@meta.data, 'scenic/cell_metadata.tsv', sep='\t', col.names=NA, quote = FALSE)
     zip::zip(zipfile = file, files = "scenic", mode = "cherry-pick") # temp folderにzip fileを作る zip::zipでないとmodeが指定できない。
   })
   },
