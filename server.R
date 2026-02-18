@@ -24378,12 +24378,15 @@ tryCatch({
       # --- Step 2: MCA co-embedding ---
       # Workaround: CelliD::RunMCA.Seurat uses GetAssayData(slot=...) which is
       # defunct in SeuratObject v5. Use matrix method directly instead.
+      # Replicate compute.mca() exactly: NormalizeData() then RunMCA on matrix.
       dims.use <- 1:input$gsdensityDims
 
-      data_matrix <- as.matrix(GetAssayData(seurat_object,
-                       assay = seurat_object@active.assay, layer = "data"))
+      seurat_tmp <- NormalizeData(seurat_object)
+      data_matrix <- as.matrix(GetAssayData(seurat_tmp,
+                       assay = seurat_tmp@active.assay, layer = "data"))
+      rm(seurat_tmp)
       expr_genes <- rownames(data_matrix)
-      genes.use.1 <- intersect(expr_genes, expr_genes)  # all genes
+      genes.use.1 <- expr_genes
 
       mca_result <- CelliD::RunMCA(X = data_matrix, nmcs = max(dims.use),
                                     features = genes.use.1)
