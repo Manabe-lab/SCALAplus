@@ -14790,6 +14790,18 @@ global_heatmap <<- p
     })
   })
 
+# Mutual exclusion: Prioritize expressing cells vs Randomize cell order
+observeEvent(input$findMarkersOrder, {
+  if (isTRUE(input$findMarkersOrder)) {
+    updateCheckboxInput(session, "findMarkersRandom", value = FALSE)
+  }
+})
+observeEvent(input$findMarkersRandom, {
+  if (isTRUE(input$findMarkersRandom)) {
+    updateCheckboxInput(session, "findMarkersOrder", value = FALSE)
+  }
+})
+
 observeEvent(input$findMarkersFPConfirm, {
   session$sendCustomMessage("handler_startLoader", c("DEA4_loader", 10))
   session$sendCustomMessage("handler_disableAllButtons", "findMarkersFPConfirm")

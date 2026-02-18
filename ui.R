@@ -3051,8 +3051,14 @@ tags$br(),
                               checkboxInput("wkde", label = "Use wkde for Nebulosa?", value = FALSE),
                               tags$hr(),
                                checkboxInput("findMarkersLabels", label = "Show cluster labels?", value = FALSE),
-                               checkboxInput("findMarkersOrder", label = "Prioritize expressing cells?", value = FALSE),
-                               checkboxInput("findMarkersRandom", label = "Randomize cell order?", value = TRUE),
+                               conditionalPanel(
+                                 condition = "!input.findMarkersRandom",
+                                 checkboxInput("findMarkersOrder", label = "Prioritize expressing cells?", value = FALSE)
+                               ),
+                               conditionalPanel(
+                                 condition = "!input.findMarkersOrder",
+                                 checkboxInput("findMarkersRandom", label = "Randomize cell order?", value = TRUE)
+                               ),
 
                                  checkboxInput("featureSplitByFlag", label= "Split by an identity?", value = FALSE, width = NULL),
                       selectInput("featureSplitBy", "Split by:", c("Cluster" = "orig.ident"), selected = NULL),
