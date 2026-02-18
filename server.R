@@ -24336,11 +24336,19 @@ compute.kld.patched <- function(coembed, genes.use, n.grids = 100,
     pvalue <- pnorm(log(kld), rkld.avg, rkld.sd, lower.tail = FALSE)
     pvalues[i] <- pvalue
   }
-  out <- as.data.frame(cbind(gene.set.names, klds, len.gl,
-                              rklds.avg, rklds.sd, pvalues))
+  out <- data.frame(
+    gene.set = gene.set.names,
+    kld = klds,
+    gene.set.length = len.gl,
+    rkld.mean = rklds.avg,
+    rkld.sd = rklds.sd,
+    p.value = pvalues,
+    stringsAsFactors = FALSE
+  )
   out <- out[complete.cases(out), ]
-  colnames(out) <- c("gene.set", "kld", "gene.set.length",
-                      "rkld.mean", "rkld.sd", "p.value")
+  out$kld <- as.numeric(out$kld)
+  out$gene.set.length <- as.integer(out$gene.set.length)
+  out$p.value <- as.numeric(out$p.value)
   out$p.adj <- p.adjust(p = out$p.value, method = "fdr")
   return(out)
 }
@@ -24471,18 +24479,19 @@ tryCatch({
       )
 
       # Store KLD results
+      print(paste("GSDensity KLD: ", nrow(kld_result), "gene sets tested"))
+      print(colnames(kld_result))
       gsdensity_kld_results(kld_result)
 
-      # Filter significant pathways
-      sig_gs <- kld_result[kld_result$padj < 0.05, , drop = FALSE]
+      # Filter significant pathways (column is "p.adj" from compute.kld)
+      sig_gs <- kld_result[as.numeric(kld_result$p.adj) < 0.05, , drop = FALSE]
 
       if (nrow(sig_gs) == 0) {
         showNotification("No significant gene sets found (padj < 0.05). Try adjusting parameters.", type = "warning", duration = 30)
         return(NULL)
       }
 
-      sig_names <- rownames(sig_gs)
-      if (is.null(sig_names)) sig_names <- sig_gs[, 1]  # first column if no rownames
+      sig_names <- sig_gs$gene.set
       sig_gene_sets <- gene.set.list[names(gene.set.list) %in% sig_names]
 
       print(paste("GSDensity: ", length(sig_gene_sets), "significant gene sets"))
@@ -24582,11 +24591,13 @@ tryCatch({
 output$gsdensityKLDtable <- DT::renderDataTable({
   req(gsdensity_kld_results())
   df <- gsdensity_kld_results()
-  # Format p-values
-  if ("pvalue" %in% colnames(df)) df$pvalue <- signif(df$pvalue, 3)
-  if ("padj" %in% colnames(df)) df$padj <- signif(df$padj, 3)
-  if ("KLD" %in% colnames(df)) df$KLD <- round(df$KLD, 4)
-  DT::datatable(df, options = list(pageLength = 20, scrollX = TRUE, order = list(list(which(colnames(df) == "padj") - 1, "asc"))),
+  # Format numeric columns
+  if ("p.value" %in% colnames(df)) df$p.value <- signif(as.numeric(df$p.value), 3)
+  if ("p.adj" %in% colnames(df)) df$p.adj <- signif(as.numeric(df$p.adj), 3)
+  if ("kld" %in% colnames(df)) df$kld <- round(as.numeric(df$kld), 4)
+  padj_col <- which(colnames(df) == "p.adj")
+  DT::datatable(df, options = list(pageLength = 20, scrollX = TRUE,
+                order = if (length(padj_col) > 0) list(list(padj_col - 1, "asc")) else list()),
                 filter = 'top')
 })
 
