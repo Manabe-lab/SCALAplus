@@ -24285,6 +24285,24 @@ showNotification(paste0("Active assay is set to ", slot_name), duration=30)
 
 # ========== GSDensity ==========
 
+# Patched compute.kld: anticlust::balanced_clustering requires N divisible by K.
+# Trim genes so that length(genes.use) is divisible by n.grids.
+compute.kld.patched <- function(coembed, genes.use, n.grids = 100,
+                                 gene.set.list, gene.set.cutoff = 3,
+                                 n.times = 100) {
+  n_genes <- length(genes.use)
+  remainder <- n_genes %% n.grids
+  if (remainder != 0) {
+    # Remove 'remainder' genes (lowest variance in MCA space) to make divisible
+    gene_vars <- apply(coembed[genes.use, ], 1, var)
+    genes_sorted <- names(sort(gene_vars, decreasing = TRUE))
+    genes.use <- genes_sorted[1:(n_genes - remainder)]
+  }
+  compute.kld(coembed = coembed, genes.use = genes.use, n.grids = n.grids,
+              gene.set.list = gene.set.list, gene.set.cutoff = gene.set.cutoff,
+              n.times = n.times)
+}
+
 # Reactive values for GSDensity results
 gsdensity_kld_results <- reactiveVal(NULL)
 gsdensity_spec_results <- reactiveVal(NULL)
@@ -24400,7 +24418,8 @@ tryCatch({
       incProgress(0.1, detail = "Computing KLD significance...")
 
       # --- Step 3: KLD test ---
-      kld_result <- compute.kld(
+      # Use patched version to handle non-divisible gene count / n.grids
+      kld_result <- compute.kld.patched(
         coembed = ce,
         genes.use = genes.use,
         n.grids = input$gsdensityNgrids,
