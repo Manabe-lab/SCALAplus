@@ -24376,11 +24376,22 @@ tryCatch({
       incProgress(0.1, detail = "Computing MCA co-embedding...")
 
       # --- Step 2: MCA co-embedding ---
-      ce <- compute.mca(object = seurat_object, dims.use = 1:input$gsdensityDims)
+      # Workaround: CelliD::RunMCA.Seurat uses GetAssayData(slot=...) which is
+      # defunct in SeuratObject v5. Use matrix method directly instead.
+      dims.use <- 1:input$gsdensityDims
 
-      # Genes present in both co-embedding and expression
-      expr_genes <- rownames(GetAssayData(seurat_object, assay = seurat_object@active.assay, layer = "data"))
-      genes.use <- intersect(rownames(ce), expr_genes)
+      data_matrix <- as.matrix(GetAssayData(seurat_object,
+                       assay = seurat_object@active.assay, layer = "data"))
+      expr_genes <- rownames(data_matrix)
+      genes.use.1 <- intersect(expr_genes, expr_genes)  # all genes
+
+      mca_result <- CelliD::RunMCA(X = data_matrix, nmcs = max(dims.use),
+                                    features = genes.use.1)
+      gene_loadings <- mca_result$featuresCoordinates[, dims.use, drop = FALSE]
+      cell_embeddings <- mca_result$cellsCoordinates[, dims.use, drop = FALSE]
+      ce <- rbind(gene_loadings, cell_embeddings)
+
+      genes.use <- intersect(rownames(gene_loadings), expr_genes)
 
       print(paste("GSDensity: ", length(genes.use), "genes in MCA space"))
 
