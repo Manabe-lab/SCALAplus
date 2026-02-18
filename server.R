@@ -24285,22 +24285,64 @@ showNotification(paste0("Active assay is set to ", slot_name), duration=30)
 
 # ========== GSDensity ==========
 
-# Patched compute.kld: anticlust::balanced_clustering requires N divisible by K.
-# Trim genes so that length(genes.use) is divisible by n.grids.
+# Patched compute.grid.coords: anticlust >= 0.8 requires N divisible by K
+# in balanced_clustering(). Bypass validation by calling nn_centroid_clustering
+# directly, which matches the behavior of older anticlust versions (<=0.6).
+compute.grid.coords.patched <- function(coembed, genes.use, n.grids = 100) {
+  coembed_scaled <- scale(coembed[genes.use, ])
+  nn_cc <- getFromNamespace("nn_centroid_clustering", "anticlust")
+  cl <- nn_cc(as.matrix(coembed_scaled), K = n.grids)
+  centroid.coords <- aggregate(coembed_scaled, list(cl), mean)[, -1]
+  return(centroid.coords)
+}
+
+# Patched compute.kld: uses compute.grid.coords.patched instead of original
 compute.kld.patched <- function(coembed, genes.use, n.grids = 100,
                                  gene.set.list, gene.set.cutoff = 3,
                                  n.times = 100) {
-  n_genes <- length(genes.use)
-  remainder <- n_genes %% n.grids
-  if (remainder != 0) {
-    # Remove 'remainder' genes (lowest variance in MCA space) to make divisible
-    gene_vars <- apply(coembed[genes.use, ], 1, var)
-    genes_sorted <- names(sort(gene_vars, decreasing = TRUE))
-    genes.use <- genes_sorted[1:(n_genes - remainder)]
+  coembed.scale <- scale(coembed[genes.use, ])
+  grid.co <- compute.grid.coords.patched(coembed, genes.use, n.grids)
+  dist.to.grid <- gsdensity::vectorized_pdist(A = as.matrix(coembed.scale),
+                                               B = as.matrix(grid.co))
+  bandwidth <- median(apply(dist.to.grid, 1, min))
+  dist.to.grid.norm <- dist.to.grid / bandwidth
+  density.contributions <- exp(-dist.to.grid.norm * dist.to.grid.norm / 2)
+  Q <- gsdensity::compute.db(density.df = density.contributions)
+
+  gene.set.names <- rep(NA, length(gene.set.list))
+  klds <- rep(0, length(gene.set.list))
+  len.gl <- rep(0, length(gene.set.list))
+  rklds.avg <- rep(0, length(gene.set.list))
+  rklds.sd <- rep(0, length(gene.set.list))
+  pvalues <- rep(0, length(gene.set.list))
+
+  for (i in 1:length(gene.set.list)) {
+    gene.set.name <- names(gene.set.list)[i]
+    gene.set <- intersect(genes.use, gene.set.list[[i]])
+    len.gene.set <- length(gene.set)
+    if (len.gene.set < gene.set.cutoff) next
+    gene.set.names[i] <- gene.set.name
+    len.gl[i] <- len.gene.set
+    P <- gsdensity::compute.db(density.df = density.contributions[gene.set, ])
+    kld <- sum(P * log(P / Q))
+    klds[i] <- log(kld)
+    rkld <- sapply(1:n.times, function(x)
+      gsdensity::sample.kld(density.df = density.contributions,
+                             ref = Q, len.gene.set = len.gene.set))
+    rkld.avg <- mean(log(rkld))
+    rkld.sd <- sd(log(rkld))
+    rklds.avg[i] <- rkld.avg
+    rklds.sd[i] <- rkld.sd
+    pvalue <- pnorm(log(kld), rkld.avg, rkld.sd, lower.tail = FALSE)
+    pvalues[i] <- pvalue
   }
-  compute.kld(coembed = coembed, genes.use = genes.use, n.grids = n.grids,
-              gene.set.list = gene.set.list, gene.set.cutoff = gene.set.cutoff,
-              n.times = n.times)
+  out <- as.data.frame(cbind(gene.set.names, klds, len.gl,
+                              rklds.avg, rklds.sd, pvalues))
+  out <- out[complete.cases(out), ]
+  colnames(out) <- c("gene.set", "kld", "gene.set.length",
+                      "rkld.mean", "rkld.sd", "p.value")
+  out$p.adj <- p.adjust(p = out$p.value, method = "fdr")
+  return(out)
 }
 
 # Reactive values for GSDensity results
