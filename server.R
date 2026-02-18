@@ -24283,6 +24283,253 @@ showNotification(paste0("Active assay is set to ", slot_name), duration=30)
     })})
 
 
+# ========== GSDensity ==========
+
+# Reactive values for GSDensity results
+gsdensity_kld_results <- reactiveVal(NULL)
+gsdensity_spec_results <- reactiveVal(NULL)
+gsdensity_spatial_results <- reactiveVal(NULL)
+
+observeEvent(input$runGSDensity, {
+tryCatch({
+  if (identical(seurat_object, NULL)) {
+    session$sendCustomMessage("handler_alert", "Please, upload some data via the DATA INPUT tab first.")
+  } else if (identical(seurat_object@meta.data$seurat_clusters, NULL)) {
+    session$sendCustomMessage("handler_alert", "Please, execute CLUSTERING first.")
+  } else {
+    withProgress(message = 'Running GSDensity...', value = 0.0, {
+
+      library(gsdensity)
+      library(msigdbr)
+
+      incProgress(0.05, detail = "Preparing gene sets...")
+
+      # --- Step 1: Prepare gene set list ---
+      if (input$gsdensitySource == "msigdb") {
+        gs_input <- input$gsdensityGeneset
+
+        if (gs_input == "H") {
+          category <- "H"
+          subcategory <- NULL
+          slot_name <- "GSDensity.Hallmark"
+        } else if (gs_input %in% c("CP:KEGG_LEGACY", "CP:KEGG_MEDICUS", "CP:REACTOME", "CP:WIKIPATHWAYS", "CP:BIOCARTA")) {
+          category <- "C2"
+          subcategory <- gs_input
+          slot_name <- paste0("GSDensity.", str_replace(gs_input, "CP:", ""))
+        } else if (gs_input == "TFT:GTRD") {
+          category <- "C3"
+          subcategory <- gs_input
+          slot_name <- paste0("GSDensity.", str_replace(gs_input, "TFT:", ""))
+        } else if (gs_input == "GO:BP") {
+          category <- "C5"
+          subcategory <- gs_input
+          slot_name <- paste0("GSDensity.", str_replace(gs_input, "GO:", ""))
+        } else if (gs_input == "C7:IMMUNESIGDB") {
+          category <- "C7"
+          subcategory <- gs_input
+          slot_name <- paste0("GSDensity.", str_replace(gs_input, "C7:", ""))
+        } else if (gs_input == "C8") {
+          category <- "C8"
+          subcategory <- NULL
+          slot_name <- "GSDensity.C8"
+        }
+
+        if (organism == 'mouse') {
+          species_name <- "Mus musculus"
+        } else {
+          species_name <- "Homo sapiens"
+        }
+
+        if (is.null(subcategory)) {
+          mdb <- msigdbr(species = species_name, category = category)
+        } else {
+          mdb <- msigdbr(species = species_name, category = category, subcategory = subcategory)
+        }
+
+        # Convert to named list
+        gene.set.list <- split(mdb$gene_symbol, mdb$gs_name)
+        gene.set.list <- lapply(gene.set.list, unique)
+
+      } else {
+        # GMT upload
+        req(input$gsdensityGMT)
+        gmt <- clusterProfiler::read.gmt(input$gsdensityGMT$datapath)
+        gmt$term <- factor(gmt$term)
+        gene.set.list <- gmt %>%
+          dplyr::group_split(term, .keep = FALSE) %>%
+          purrr::map(~.x %>% dplyr::pull(gene) %>% unique()) %>%
+          purrr::set_names(levels(gmt$term))
+
+        gmt_name <- make.names(str_remove(basename(input$gsdensityGMT$name), "\\.gmt$"))
+        slot_name <- paste0("GSDensity_", gmt_name)
+      }
+
+      # Filter gene sets by minimum size
+      gene.set.list <- gene.set.list[sapply(gene.set.list, length) >= input$gsdensityGeneSetCutoff]
+
+      if (length(gene.set.list) == 0) {
+        stop("No gene sets remain after filtering by minimum gene count.")
+      }
+
+      print(paste("GSDensity: ", length(gene.set.list), "gene sets loaded"))
+
+      incProgress(0.1, detail = "Computing MCA co-embedding...")
+
+      # --- Step 2: MCA co-embedding ---
+      ce <- compute.mca(object = seurat_object, dims.use = 1:input$gsdensityDims)
+
+      # Genes present in both co-embedding and expression
+      expr_genes <- rownames(GetAssayData(seurat_object, assay = seurat_object@active.assay, layer = "data"))
+      genes.use <- intersect(rownames(ce), expr_genes)
+
+      print(paste("GSDensity: ", length(genes.use), "genes in MCA space"))
+
+      incProgress(0.1, detail = "Computing KLD significance...")
+
+      # --- Step 3: KLD test ---
+      kld_result <- compute.kld(
+        coembed = ce,
+        genes.use = genes.use,
+        n.grids = input$gsdensityNgrids,
+        gene.set.list = gene.set.list,
+        gene.set.cutoff = input$gsdensityGeneSetCutoff,
+        n.times = input$gsdensityNtimes
+      )
+
+      # Store KLD results
+      gsdensity_kld_results(kld_result)
+
+      # Filter significant pathways
+      sig_gs <- kld_result[kld_result$padj < 0.05, , drop = FALSE]
+
+      if (nrow(sig_gs) == 0) {
+        showNotification("No significant gene sets found (padj < 0.05). Try adjusting parameters.", type = "warning", duration = 30)
+        return(NULL)
+      }
+
+      sig_names <- rownames(sig_gs)
+      if (is.null(sig_names)) sig_names <- sig_gs[, 1]  # first column if no rownames
+      sig_gene_sets <- gene.set.list[names(gene.set.list) %in% sig_names]
+
+      print(paste("GSDensity: ", length(sig_gene_sets), "significant gene sets"))
+
+      incProgress(0.15, detail = "Building NN graph...")
+
+      # --- Step 4: Nearest-neighbor graph ---
+      el <- compute.nn.edges(coembed = ce, nn.use = input$gsdensityNN)
+      cells <- colnames(seurat_object)
+
+      incProgress(0.15, detail = "Running label propagation (RWR)...")
+
+      # --- Step 5: RWR scoring ---
+      cell_scores <- run.rwr.list(
+        el = el,
+        gene_set_list = sig_gene_sets,
+        cells = cells,
+        restart = input$gsdensityRestart
+      )
+
+      # cell_scores: data.frame with cells as rows, pathways as columns
+      print(paste("GSDensity: RWR scores computed for", ncol(cell_scores), "pathways"))
+
+      incProgress(0.1, detail = "Processing results...")
+
+      # --- Step 6: Store as Seurat assay ---
+      # Transpose: pathways as rows, cells as columns (Seurat assay format)
+      score_matrix <- t(as.matrix(cell_scores))
+      # Clean pathway names for Seurat compatibility
+      rownames(score_matrix) <- make.names(rownames(score_matrix))
+
+      seurat_object[[slot_name]] <<- CreateAssayObject(data = score_matrix)
+      DefaultAssay(seurat_object) <<- slot_name
+
+      # --- Step 7: Binarization (optional) ---
+      if (input$gsdensityBinarize) {
+        incProgress(0.05, detail = "Binarizing cell labels...")
+        cell_labels <- compute.cell.label.df(cell_scores)
+
+        # Add each pathway's label to metadata
+        for (pathway_col in colnames(cell_labels)) {
+          meta_col_name <- paste0(make.names(pathway_col), "_gsd_label")
+          seurat_object@meta.data[[meta_col_name]] <<- cell_labels[, pathway_col]
+        }
+      }
+
+      # --- Step 8: Specificity scoring (optional) ---
+      if (input$gsdensitySpecificity) {
+        incProgress(0.05, detail = "Computing cluster specificity...")
+        spec_result <- compute.spec(
+          cell_df = cell_scores,
+          metadata = seurat_object@meta.data,
+          cell_group = "seurat_clusters"
+        )
+        gsdensity_spec_results(as.data.frame(spec_result))
+      }
+
+      # --- Step 9: Spatial KLD (optional) ---
+      if (input$gsdensitySpatial) {
+        incProgress(0.05, detail = "Computing spatial KLD...")
+        has_spatial <- length(Images(seurat_object)) > 0
+
+        if (has_spatial) {
+          spatial_coords <- GetTissueCoordinates(seurat_object)
+          spatial_kld <- compute.spatial.kld.df(
+            spatial.coords = spatial_coords,
+            weight_df = cell_scores,
+            n = input$gsdensitySpatialN,
+            n.times = input$gsdensitySpatialNtimes
+          )
+          gsdensity_spatial_results(as.data.frame(spatial_kld))
+        } else {
+          showNotification("No spatial data detected. Spatial KLD skipped.", type = "warning", duration = 15)
+        }
+      }
+
+      # --- Step 10: Update UI ---
+      updateGeneSearchFP()
+      updateUtilitiesAssays()
+      updateSelInpColor()
+      updateMetadata()
+      updateSignatures()
+
+      showNotification(paste0("GSDensity complete. Active assay: ", slot_name,
+                              ". ", length(sig_gene_sets), " significant pathways scored."),
+                       duration = 30)
+
+    }) # withProgress
+  }
+}, error = function(e) {
+  print(paste("GSDensity Error:", e))
+  showNotification(paste("GSDensity Error:", e), type = 'error', duration = 200)
+})
+})
+
+# GSDensity result tables
+output$gsdensityKLDtable <- DT::renderDataTable({
+  req(gsdensity_kld_results())
+  df <- gsdensity_kld_results()
+  # Format p-values
+  if ("pvalue" %in% colnames(df)) df$pvalue <- signif(df$pvalue, 3)
+  if ("padj" %in% colnames(df)) df$padj <- signif(df$padj, 3)
+  if ("KLD" %in% colnames(df)) df$KLD <- round(df$KLD, 4)
+  DT::datatable(df, options = list(pageLength = 20, scrollX = TRUE, order = list(list(which(colnames(df) == "padj") - 1, "asc"))),
+                filter = 'top')
+})
+
+output$gsdensitySpecTable <- DT::renderDataTable({
+  req(gsdensity_spec_results())
+  df <- gsdensity_spec_results()
+  df <- round(df, 4)
+  DT::datatable(df, options = list(pageLength = 20, scrollX = TRUE), filter = 'top')
+})
+
+output$gsdensitySpatialTable <- DT::renderDataTable({
+  req(gsdensity_spatial_results())
+  df <- gsdensity_spatial_results()
+  if ("pvalue" %in% colnames(df)) df$pvalue <- signif(df$pvalue, 3)
+  if ("padj" %in% colnames(df)) df$padj <- signif(df$padj, 3)
+  DT::datatable(df, options = list(pageLength = 20, scrollX = TRUE), filter = 'top')
+})
 
 
 #alra

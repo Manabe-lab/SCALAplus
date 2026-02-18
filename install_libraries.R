@@ -74,7 +74,11 @@ libraries_CRAN <- c(
   "pheatmap",
   "hdf5r",
   "missMDA",
-  "dismo"
+  "dismo",
+  "infotheo",
+  "philentropy",
+  "anticlust",
+  "multimode"
 )
 for (i in 1:length(libraries_CRAN))
 {
@@ -129,8 +133,27 @@ if("destiny" %in% rownames(installed.packages()))
 if("UCell" %in% rownames(installed.packages()))
 {
   print("UCell is installed")
-} else {  
+} else {
   remotes::install_github("carmonalab/UCell", upgrade=c("never"))
+}
+if("supraHex" %in% rownames(installed.packages()))
+{
+  print("supraHex is installed")
+} else {
+  remotes::install_github("hfang-bristol/supraHex", upgrade=c("never"))
+}
+if("dnet" %in% rownames(installed.packages()))
+{
+  print("dnet is installed")
+} else {
+  remotes::install_github("hfang-bristol/dnet", upgrade=c("never"))
+}
+if("gsdensity" %in% rownames(installed.packages()))
+{
+  print("gsdensity is installed")
+} else {
+  Sys.setenv("R_REMOTES_NO_ERRORS_FROM_WARNINGS" = "true")
+  remotes::install_github("KChen-lab/gsdensity", upgrade=c("never"))
 }
 
 # 
@@ -155,7 +178,9 @@ libraries_bioconductor <- c(
   "BSgenome.Mmusculus.UCSC.mm9",
   "BSgenome.Mmusculus.UCSC.mm10",
   "BSgenome.Hsapiens.UCSC.hg19",
-  "BSgenome.Hsapiens.UCSC.hg38"
+  "BSgenome.Hsapiens.UCSC.hg38",
+  "CelliD",
+  "Rgraphviz"
 )
 for (i in 1:length(libraries_bioconductor))
   {

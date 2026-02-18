@@ -4520,6 +4520,126 @@ box(width = 4, status = "info", solidHeader = TRUE,
                       tags$h5("Default assay is used for calculation except pagoda2 and VISION, which use RNA counts.")
                     ),
 
+                    # GSDensity tab
+                    tabPanel("GSDensity",
+                      tags$h3("Density-based Gene Set Specificity (GSDensity)"),
+                      tags$h5("Liang et al., Nature Methods (2023). ",
+                              tags$a(href="https://github.com/KChen-lab/gsdensity", target="_blank", "GitHub")),
+
+                      # Method description - expandable
+                      tags$div(
+                        tags$button(
+                          class = "btn btn-link",
+                          `data-toggle` = "collapse",
+                          `data-target` = "#gsdensityHelp",
+                          style = "padding: 5px 10px; text-decoration: none;",
+                          tags$i(class = "fa fa-question-circle", style = "margin-right: 5px;"),
+                          "About GSDensity (click to expand)"
+                        ),
+                        tags$div(
+                          id = "gsdensityHelp",
+                          class = "collapse",
+                          style = "background-color: #f0f8ff; border-left: 4px solid #2196F3; padding: 10px; margin: 10px 0;",
+                          tags$p("GSDensity uses Multiple Correspondence Analysis (MCA) to co-embed cells and genes, ",
+                                 "then evaluates gene set enrichment via Kullback-Leibler divergence (KLD) and ",
+                                 "identifies relevant cells using Random Walk with Restart (RWR) label propagation."),
+                          tags$ul(
+                            tags$li(tags$b("Cluster-free:"), " Does not require pre-defined clusters"),
+                            tags$li(tags$b("Sparse-resistant:"), " Works well with dropout-heavy scRNA-seq data"),
+                            tags$li(tags$b("Per-cell scores:"), " Produces continuous pathway activity scores for each cell"),
+                            tags$li(tags$b("Specificity:"), " Can evaluate which clusters are most enriched for each pathway"),
+                            tags$li(tags$b("Spatial support:"), " Can test spatial clustering of pathway-active cells")
+                          )
+                        )
+                      ),
+
+                      tags$hr(),
+
+                      # Gene set source selection
+                      tags$h4("Gene Set Source"),
+                      radioButtons("gsdensitySource", "Select gene set source:",
+                                   choices = c("mSigDB" = "msigdb", "Upload GMT" = "gmt"),
+                                   selected = "msigdb", inline = TRUE),
+
+                      conditionalPanel(
+                        condition = "input.gsdensitySource == 'msigdb'",
+                        selectInput("gsdensityGeneset", "Select mSigDB gene set",
+                          choices = c("Hallmark" = "H",
+                                      "KEGG_LEGACY" = "CP:KEGG_LEGACY",
+                                      "KEGG_MEDICUS" = "CP:KEGG_MEDICUS",
+                                      "Reactome" = "CP:REACTOME",
+                                      "Gene Ontology Biological Process" = "GO:BP",
+                                      "WikiPathways" = "CP:WIKIPATHWAYS",
+                                      "BIOCARTA" = "CP:BIOCARTA",
+                                      "TF target GTRD subset" = "TFT:GTRD",
+                                      "C7 immunologic signature" = "C7:IMMUNESIGDB",
+                                      "C8 cell type signature" = "C8"),
+                          selected = "H")
+                      ),
+                      conditionalPanel(
+                        condition = "input.gsdensitySource == 'gmt'",
+                        fileInput(inputId = "gsdensityGMT", label = "Upload GMT file", accept = c("gmt", "GMT"))
+                      ),
+
+                      tags$hr(),
+
+                      # Parameters
+                      tags$h4("Parameters"),
+                      fluidRow(
+                        column(4, numericInput("gsdensityDims", "MCA dimensions:", min = 10, max = 100, value = 50, step = 10)),
+                        column(4, numericInput("gsdensityNgrids", "KLD grid resolution:", min = 50, max = 500, value = 100, step = 50)),
+                        column(4, numericInput("gsdensityNtimes", "Permutations:", min = 50, max = 500, value = 100, step = 50))
+                      ),
+                      fluidRow(
+                        column(4, numericInput("gsdensityNN", "Nearest neighbors:", min = 50, max = 1000, value = 300, step = 50)),
+                        column(4, numericInput("gsdensityRestart", "RWR restart:", min = 0.1, max = 0.95, value = 0.75, step = 0.05)),
+                        column(4, numericInput("gsdensityGeneSetCutoff", "Min genes per set:", min = 1, max = 50, value = 3, step = 1))
+                      ),
+
+                      tags$hr(),
+
+                      # Options
+                      tags$h4("Options"),
+                      checkboxInput("gsdensitySpecificity", "Compute cluster specificity scores", value = TRUE),
+                      checkboxInput("gsdensityBinarize", "Binarize cell labels (positive/negative)", value = TRUE),
+                      checkboxInput("gsdensitySpatial", "Compute spatial KLD (for Spatial Transcriptomics data)", value = FALSE),
+                      conditionalPanel(
+                        condition = "input.gsdensitySpatial == true",
+                        fluidRow(
+                          column(4, numericInput("gsdensitySpatialN", "Spatial KLD bins:", min = 5, max = 50, value = 10, step = 5)),
+                          column(4, numericInput("gsdensitySpatialNtimes", "Spatial permutations:", min = 10, max = 100, value = 20, step = 10))
+                        )
+                      ),
+
+                      tags$hr(),
+
+                      # Run button
+                      actionButton(inputId = "runGSDensity", label = "Run GSDensity", class = "btn btn-info"),
+
+                      tags$hr(),
+
+                      # Results
+                      tags$h4("KLD Test Results (significant pathways)"),
+                      DT::dataTableOutput("gsdensityKLDtable"),
+
+                      conditionalPanel(
+                        condition = "input.gsdensitySpecificity == true",
+                        tags$hr(),
+                        tags$h4("Cluster Specificity Scores"),
+                        DT::dataTableOutput("gsdensitySpecTable")
+                      ),
+
+                      conditionalPanel(
+                        condition = "input.gsdensitySpatial == true",
+                        tags$hr(),
+                        tags$h4("Spatial KLD Results"),
+                        DT::dataTableOutput("gsdensitySpatialTable")
+                      ),
+
+                      tags$h4("Scores are stored as a new assay for FeaturePlot visualization."),
+                      tags$h5("Binarized labels are stored in metadata (cluster identity dropdown).")
+                    ),
+
                     # CytoTRACE2 tab
                     tabPanel("CytoTRACE2",
                       tags$h3("CytoTRACE2 for development potential"),
