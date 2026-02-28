@@ -25253,11 +25253,8 @@ observeEvent(input$confirmGeneConversion, {
               rownames(counts_mat) <- new_gene_names
               print(paste("  Renamed counts:", length(new_gene_names), "genes"))
 
-              # Assay5 として直接再構築
-              old_opt <- getOption("Seurat.object.assay.version")
-              options(Seurat.object.assay.version = "v5")
-
-              new_assay <- CreateAssayObject(counts = counts_mat)
+              # Assay5 として再構築
+              new_assay <- CreateAssay5Object(counts = counts_mat)
 
               # data layer（正規化済みデータ）があれば処理
               available_layers <- Layers(seurat_object[[assay_name]])
@@ -25295,8 +25292,6 @@ observeEvent(input$confirmGeneConversion, {
                   print(paste("  Updated scale.data layer:", nrow(scale_mat), "genes"))
                 }
               }
-
-              options(Seurat.object.assay.version = old_opt)
 
               # VariableFeatures
               if (length(VariableFeatures(seurat_object, assay = assay_name)) > 0) {
