@@ -814,17 +814,27 @@ observeEvent(input$uploadCountMatrixConfirm, {
                                          min.features = as.numeric(minimum_features))
       
       seurat_object@meta.data$orig.ident <<- as.factor(metaD$my_project_name)
-      
+
+      # v5ではlayerをjointする
+      if (is_assay5(seurat_object)){
+        tryCatch({
+          seurat_object <<- JoinLayers(seurat_object)
+          showNotification("v5 assay's layers are joined.")
+        }, error = function(e) {
+          showNotification(paste("Error :  ", e), type = 'error', duration=200)
+        })
+      }
+
       # Initialize after data load
       session$sendCustomMessage("handler_startLoader", c("input_loader", 75))
       initializeAfterDataLoad(organism)
-      
+
       if(organism == "human") {
-        updateTextAreaInput(session, inputId="findMarkersSignatureMembers", 
+        updateTextAreaInput(session, inputId="findMarkersSignatureMembers",
                           placeholder = "PRG4\nTSPAN15\nCOL22A1\nHTRA4")
       }
-      
-      session$sendCustomMessage("handler_enableTabs", 
+
+      session$sendCustomMessage("handler_enableTabs",
                               c("sidebarMenu", " FILE", " QUALITY CONTROL", " DATA NORMALIZATION\n& SCALING", " SEURAT OBJECT STRUCTURE", " UTILITY IDENTITY & ASSAY", " UTILITY CLUSTER", " UTILITY DATA MANIPULATION"))
       
     }, error = function(e) {
@@ -1064,6 +1074,16 @@ if (is.null(dim(seurat_data[]))){ # hastagのデータではseurat_data[[1]]に�
         }
 
 #        init_seurat_object <<- seurat_object
+
+        # v5ではlayerをjointする
+        if (is_assay5(seurat_object)){
+          tryCatch({
+            seurat_object <<- JoinLayers(seurat_object)
+            showNotification("v5 assay's layers are joined.")
+          }, error = function(e) {
+            showNotification(paste("Error :  ", e), type = 'error', duration=200)
+          })
+        }
 
         session$sendCustomMessage("handler_startLoader", c("input_loader", 25))
         # Initialize after data load
@@ -25197,146 +25217,147 @@ observeEvent(input$confirmGeneConversion, {
       # Update gene names in Seurat object if requested
       if (input$updateGeneNames) {
         print("Updating gene names in Seurat object...")
-        
+
         # Get all assays
         assays <- names(seurat_object@assays)
         print(paste("Found assays:", paste(assays, collapse = ", ")))
-        
+
         # Process each assay
         for (assay_name in assays) {
           print(paste("Processing assay:", assay_name))
-          
-          current_assay <- seurat_object[[assay_name]]
-          
-          # Get features from each slot
-          counts_features <- if (!is.null(current_assay@counts) && nrow(current_assay@counts) > 0) 
-            rownames(current_assay@counts) else NULL
-          data_features <- if (!is.null(current_assay@data) && nrow(current_assay@data) > 0) 
-            rownames(current_assay@data) else NULL
-          scale_features <- if (!is.null(current_assay@scale.data) && nrow(current_assay@scale.data) > 0) 
-            rownames(current_assay@scale.data) else NULL
-          
-          print(paste("Counts features:", length(counts_features)))
-          print(paste("Data features:", length(data_features)))
-          print(paste("Scale.data features:", length(scale_features)))
-          
-          # Determine which slots exist and need updating
-          has_counts <- !is.null(counts_features)
-          has_data <- !is.null(data_features)
-          has_scale <- !is.null(scale_features)
-          
-          # Skip if no data in any slot
-          if (!has_counts && !has_data && !has_scale) {
-            print(paste("Skipping assay", assay_name, "- no data found"))
-            next
-          }
-          
-          # Update counts if it exists
-          new_counts <- NULL
-          if (has_counts) {
-            new_counts <- current_assay@counts
-            new_gene_names_counts <- all_genes_mapped[rownames(new_counts)]
-            # Replace underscores with dashes to match Seurat's behavior
-            new_gene_names_counts <- gsub("_", "-", new_gene_names_counts)
-            rownames(new_counts) <- new_gene_names_counts
-            # Remove names attribute to prevent UI from showing original Ensembl IDs
-            names(rownames(new_counts)) <- NULL
-            print(paste("Updated counts slot with", length(new_gene_names_counts), "genes"))
-          }
-          
-          # Update data if it exists
-          new_data <- NULL
-          if (has_data) {
-            new_data <- current_assay@data
-            new_gene_names_data <- all_genes_mapped[rownames(new_data)]
-            # Replace underscores with dashes to match Seurat's behavior
-            new_gene_names_data <- gsub("_", "-", new_gene_names_data)
-            rownames(new_data) <- new_gene_names_data
-            # Remove names attribute to prevent UI from showing original Ensembl IDs
-            names(rownames(new_data)) <- NULL
-            print(paste("Updated data slot with", length(new_gene_names_data), "genes"))
-          }
-          
-          # Update scale.data if it exists
-          new_scale_data <- NULL
-          if (has_scale) {
-            new_scale_data <- current_assay@scale.data
-            new_gene_names_scale <- all_genes_mapped[rownames(new_scale_data)]
-            # Replace underscores with dashes to match Seurat's behavior
-            new_gene_names_scale <- gsub("_", "-", new_gene_names_scale)
-            rownames(new_scale_data) <- new_gene_names_scale
-            # Remove names attribute to prevent UI from showing original Ensembl IDs
-            names(rownames(new_scale_data)) <- NULL
-            print(paste("Updated scale.data slot with", length(new_gene_names_scale), "genes"))
-          }
-          
-          # Create new assay object based on what exists
-          if (has_counts && has_data) {
-            # Both counts and data exist
-            print("Creating assay with both counts and data")
-            new_assay <- CreateAssayObject(counts = new_counts)
-            new_assay <- SetAssayData(new_assay, layer = "data", new.data = new_data)
-          } else if (has_counts) {
-            # Only counts exists
-            print("Creating assay with counts only")
-            new_assay <- CreateAssayObject(counts = new_counts)
-          } else if (has_data) {
-            # Only data exists
-            print("Creating assay with data only") 
-            new_assay <- CreateAssayObject(data = new_data)
-          }
-          
-          # Add scale.data if it exists
-          if (has_scale && !is.null(new_scale_data)) {
-            new_assay <- SetAssayData(new_assay, layer = "scale.data", new.data = new_scale_data)
-          }
-          
-          # Update meta.features (Assay5対応)
-          # Assay5では@meta.data、v4では@meta.featuresを使用
-          old_meta_features <- NULL
-          if (inherits(current_assay, "Assay5")) {
-            if (!is.null(current_assay@meta.data) && nrow(current_assay@meta.data) > 0) {
-              old_meta_features <- current_assay@meta.data
-            }
-          } else {
-            if (!is.null(current_assay@meta.features) && nrow(current_assay@meta.features) > 0) {
-              old_meta_features <- current_assay@meta.features
-            }
-          }
 
-          if (!is.null(old_meta_features)) {
-            meta_features <- old_meta_features
-            # Use the features from whatever slot exists
-            features_to_use <- if (has_counts) counts_features else if (has_data) data_features else scale_features
-            if (all(rownames(meta_features) %in% features_to_use)) {
-              new_meta_names <- all_genes_mapped[rownames(meta_features)]
-              # Replace underscores with dashes to match Seurat's behavior
-              new_meta_names <- gsub("_", "-", new_meta_names)
-              rownames(meta_features) <- new_meta_names
-              # v5対応: Assay5では@meta.data、v4では@meta.features
-              if (inherits(new_assay, "Assay5")) {
-                new_assay@meta.data <- meta_features
-              } else {
-                new_assay@meta.features <- meta_features
+          current_assay <- seurat_object[[assay_name]]
+          is_v5 <- inherits(current_assay, "Assay5")
+          print(paste("  Assay type:", ifelse(is_v5, "Assay5", "Assay v4")))
+
+          if (is_v5) {
+            # ===== Assay5: v4に変換 → リネーム → v5に戻す =====
+            tryCatch({
+              # JoinLayers してから変換
+              seurat_object <<- JoinLayers(seurat_object, assay = assay_name)
+              current_assay <- seurat_object[[assay_name]]
+
+              assay4_obj <- as(current_assay, "Assay")
+              print("  Converted Assay5 to Assay v4")
+
+              # counts
+              if (nrow(assay4_obj@counts) > 0) {
+                new_names <- all_genes_mapped[rownames(assay4_obj@counts)]
+                new_names <- gsub("_", "-", new_names)
+                names(new_names) <- NULL
+                rownames(assay4_obj@counts) <- new_names
+                print(paste("  Updated counts:", length(new_names), "genes"))
+              }
+              # data
+              if (nrow(assay4_obj@data) > 0) {
+                new_names <- all_genes_mapped[rownames(assay4_obj@data)]
+                new_names <- gsub("_", "-", new_names)
+                names(new_names) <- NULL
+                rownames(assay4_obj@data) <- new_names
+                print(paste("  Updated data:", length(new_names), "genes"))
+              }
+              # scale.data
+              if (nrow(assay4_obj@scale.data) > 0) {
+                new_names <- all_genes_mapped[rownames(assay4_obj@scale.data)]
+                new_names <- gsub("_", "-", new_names)
+                names(new_names) <- NULL
+                rownames(assay4_obj@scale.data) <- new_names
+                print(paste("  Updated scale.data:", length(new_names), "genes"))
+              }
+
+              # meta.features
+              if (nrow(assay4_obj@meta.features) > 0) {
+                new_meta_names <- all_genes_mapped[rownames(assay4_obj@meta.features)]
+                new_meta_names <- gsub("_", "-", new_meta_names)
+                names(new_meta_names) <- NULL
+                rownames(assay4_obj@meta.features) <- new_meta_names
+              }
+
+              # VariableFeatures
+              if (length(VariableFeatures(seurat_object, assay = assay_name)) > 0) {
+                var_features <- VariableFeatures(seurat_object, assay = assay_name)
+                new_var <- all_genes_mapped[var_features]
+                new_var <- gsub("_", "-", new_var)
+                names(new_var) <- NULL
+                VariableFeatures(assay4_obj) <- new_var
+              }
+
+              # v5 に戻す
+              new_assay5 <- as(assay4_obj, "Assay5")
+              seurat_object[[assay_name]] <<- new_assay5
+              print(paste("  Converted back to Assay5 and replaced:", assay_name))
+
+            }, error = function(e) {
+              print(paste("  Error processing Assay5:", e$message))
+              showNotification(paste("Error processing assay", assay_name, ":", e$message), type = "error", duration = 60)
+            })
+
+          } else {
+            # ===== Assay v4: 直接変更 =====
+            # Get features from each slot
+            counts_features <- if (!is.null(current_assay@counts) && nrow(current_assay@counts) > 0)
+              rownames(current_assay@counts) else NULL
+            data_features <- if (!is.null(current_assay@data) && nrow(current_assay@data) > 0)
+              rownames(current_assay@data) else NULL
+            scale_features <- if (!is.null(current_assay@scale.data) && nrow(current_assay@scale.data) > 0)
+              rownames(current_assay@scale.data) else NULL
+
+            has_counts <- !is.null(counts_features)
+            has_data <- !is.null(data_features)
+            has_scale <- !is.null(scale_features)
+
+            if (!has_counts && !has_data && !has_scale) {
+              print(paste("  Skipping assay", assay_name, "- no data found"))
+              next
+            }
+
+            if (has_counts) {
+              new_names <- all_genes_mapped[rownames(current_assay@counts)]
+              new_names <- gsub("_", "-", new_names)
+              names(new_names) <- NULL
+              rownames(current_assay@counts) <- new_names
+              print(paste("  Updated counts:", length(new_names), "genes"))
+            }
+            if (has_data) {
+              new_names <- all_genes_mapped[rownames(current_assay@data)]
+              new_names <- gsub("_", "-", new_names)
+              names(new_names) <- NULL
+              rownames(current_assay@data) <- new_names
+              print(paste("  Updated data:", length(new_names), "genes"))
+            }
+            if (has_scale) {
+              new_names <- all_genes_mapped[rownames(current_assay@scale.data)]
+              new_names <- gsub("_", "-", new_names)
+              names(new_names) <- NULL
+              rownames(current_assay@scale.data) <- new_names
+              print(paste("  Updated scale.data:", length(new_names), "genes"))
+            }
+
+            # meta.features
+            if (nrow(current_assay@meta.features) > 0) {
+              features_to_use <- if (has_counts) counts_features else if (has_data) data_features else scale_features
+              if (all(rownames(current_assay@meta.features) %in% features_to_use)) {
+                new_meta_names <- all_genes_mapped[rownames(current_assay@meta.features)]
+                new_meta_names <- gsub("_", "-", new_meta_names)
+                names(new_meta_names) <- NULL
+                rownames(current_assay@meta.features) <- new_meta_names
               }
             }
+
+            # VariableFeatures
+            if (length(VariableFeatures(seurat_object, assay = assay_name)) > 0) {
+              var_features <- VariableFeatures(seurat_object, assay = assay_name)
+              new_var <- all_genes_mapped[var_features]
+              new_var <- gsub("_", "-", new_var)
+              names(new_var) <- NULL
+              VariableFeatures(current_assay) <- new_var
+            }
+
+            seurat_object[[assay_name]] <<- current_assay
+            print(paste("  Successfully updated assay:", assay_name))
           }
-          
-          # Update variable features
-          if (length(VariableFeatures(seurat_object, assay = assay_name)) > 0) {
-            var_features <- VariableFeatures(seurat_object, assay = assay_name)
-            new_var_features <- all_genes_mapped[var_features]
-            # Replace underscores with dashes to match Seurat's behavior
-            new_var_features <- gsub("_", "-", new_var_features)
-            VariableFeatures(new_assay) <- new_var_features
-          }
-          
-          # Replace the assay in the Seurat object
-          seurat_object[[assay_name]] <<- new_assay
-          
-          print(paste("Successfully updated assay:", assay_name))
         }
-        
+
         print("Gene name update completed")
       }
       
