@@ -207,7 +207,7 @@ ui <- dashboardPage(
                                        fileInput(inputId = "countMatrix", label = "Genes-Cells count matrix", accept = c(".txt","tsv",'csv')),
                                         tags$h5("Extension of count matrix file must be txt, tsv, rds or gz."),
                                       tags$h4("OR use a count matrix file on the server"),
-                                        shinyFilesButton('localMatrix', label='Choose count matrix file on server', title='Select count matrix file', multiple=FALSE, value = NULL),
+                                        shinyFilesButton('localMatrix', label='Choose count matrix file on server', title='Select count matrix file', multiple=FALSE, value = NULL, class="btn btn-warning"),
                                         tags$hr(),
                                         tags$br(),
                                        sliderInput(inputId = "uploadCountMatrixminCells", label = "Include features detected in at least this many cells :", min = 0, max = 20, value = 3, step = 1),
