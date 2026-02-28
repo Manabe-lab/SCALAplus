@@ -25231,46 +25231,69 @@ observeEvent(input$confirmGeneConversion, {
           print(paste("  Assay type:", ifelse(is_v5, "Assay5", "Assay v4")))
 
           if (is_v5) {
-            # ===== Assay5: v4に変換 → リネーム → v5に戻す =====
+            # ===== Assay5: GetAssayData API でデータ取得 → リネーム → 再構築 =====
             tryCatch({
-              # JoinLayers してから変換
+              # JoinLayers してからデータ取得
               seurat_object <<- JoinLayers(seurat_object, assay = assay_name)
-              current_assay <- seurat_object[[assay_name]]
 
-              assay4_obj <- as(current_assay, "Assay")
-              print("  Converted Assay5 to Assay v4")
+              # counts を取得（GetAssayData は v4/v5 両対応）
+              counts_mat <- GetAssayData(seurat_object, assay = assay_name, layer = "counts")
+              original_rownames <- rownames(counts_mat)
+              print(paste("  Got counts:", nrow(counts_mat), "x", ncol(counts_mat)))
 
-              # counts
-              if (nrow(assay4_obj@counts) > 0) {
-                new_names <- all_genes_mapped[rownames(assay4_obj@counts)]
-                new_names <- gsub("_", "-", new_names)
-                names(new_names) <- NULL
-                rownames(assay4_obj@counts) <- new_names
-                print(paste("  Updated counts:", length(new_names), "genes"))
+              # 遺伝子名マッピング
+              new_gene_names <- all_genes_mapped[original_rownames]
+              new_gene_names <- gsub("_", "-", new_gene_names)
+              names(new_gene_names) <- NULL
+              # NA（マッピングなし）は元の名前を保持
+              na_mask <- is.na(new_gene_names)
+              if (any(na_mask)) {
+                new_gene_names[na_mask] <- original_rownames[na_mask]
               }
-              # data
-              if (nrow(assay4_obj@data) > 0) {
-                new_names <- all_genes_mapped[rownames(assay4_obj@data)]
-                new_names <- gsub("_", "-", new_names)
-                names(new_names) <- NULL
-                rownames(assay4_obj@data) <- new_names
-                print(paste("  Updated data:", length(new_names), "genes"))
-              }
-              # scale.data
-              if (nrow(assay4_obj@scale.data) > 0) {
-                new_names <- all_genes_mapped[rownames(assay4_obj@scale.data)]
-                new_names <- gsub("_", "-", new_names)
-                names(new_names) <- NULL
-                rownames(assay4_obj@scale.data) <- new_names
-                print(paste("  Updated scale.data:", length(new_names), "genes"))
+              rownames(counts_mat) <- new_gene_names
+              print(paste("  Renamed counts:", length(new_gene_names), "genes"))
+
+              # v4 Assay として再構築
+              old_opt <- getOption("Seurat.object.assay.version")
+              options(Seurat.object.assay.version = "v3")
+
+              new_assay <- CreateAssayObject(counts = counts_mat)
+
+              # data layer（正規化済みデータ）があれば処理
+              available_layers <- Layers(seurat_object[[assay_name]])
+              if ("data" %in% available_layers) {
+                data_mat <- tryCatch(
+                  GetAssayData(seurat_object, assay = assay_name, layer = "data"),
+                  error = function(e) NULL
+                )
+                if (!is.null(data_mat) && nrow(data_mat) > 0) {
+                  data_new_names <- all_genes_mapped[rownames(data_mat)]
+                  data_new_names <- gsub("_", "-", data_new_names)
+                  names(data_new_names) <- NULL
+                  na_mask_d <- is.na(data_new_names)
+                  if (any(na_mask_d)) data_new_names[na_mask_d] <- rownames(data_mat)[na_mask_d]
+                  rownames(data_mat) <- data_new_names
+                  new_assay <- SetAssayData(new_assay, slot = "data", new.data = data_mat)
+                  print(paste("  Updated data layer:", nrow(data_mat), "genes"))
+                }
               }
 
-              # meta.features
-              if (nrow(assay4_obj@meta.features) > 0) {
-                new_meta_names <- all_genes_mapped[rownames(assay4_obj@meta.features)]
-                new_meta_names <- gsub("_", "-", new_meta_names)
-                names(new_meta_names) <- NULL
-                rownames(assay4_obj@meta.features) <- new_meta_names
+              # scale.data layer があれば処理
+              if ("scale.data" %in% available_layers) {
+                scale_mat <- tryCatch(
+                  GetAssayData(seurat_object, assay = assay_name, layer = "scale.data"),
+                  error = function(e) NULL
+                )
+                if (!is.null(scale_mat) && nrow(scale_mat) > 0) {
+                  scale_new_names <- all_genes_mapped[rownames(scale_mat)]
+                  scale_new_names <- gsub("_", "-", scale_new_names)
+                  names(scale_new_names) <- NULL
+                  na_mask_s <- is.na(scale_new_names)
+                  if (any(na_mask_s)) scale_new_names[na_mask_s] <- rownames(scale_mat)[na_mask_s]
+                  rownames(scale_mat) <- scale_new_names
+                  new_assay <- SetAssayData(new_assay, slot = "scale.data", new.data = scale_mat)
+                  print(paste("  Updated scale.data layer:", nrow(scale_mat), "genes"))
+                }
               }
 
               # VariableFeatures
@@ -25279,13 +25302,18 @@ observeEvent(input$confirmGeneConversion, {
                 new_var <- all_genes_mapped[var_features]
                 new_var <- gsub("_", "-", new_var)
                 names(new_var) <- NULL
-                VariableFeatures(assay4_obj) <- new_var
+                na_mask_v <- is.na(new_var)
+                if (any(na_mask_v)) new_var[na_mask_v] <- var_features[na_mask_v]
+                VariableFeatures(new_assay) <- new_var
               }
 
-              # v5 に戻す
-              new_assay5 <- as(assay4_obj, "Assay5")
+              # Assay5 に変換して置換
+              options(Seurat.object.assay.version = "v5")
+              new_assay5 <- as(new_assay, "Assay5")
+              options(Seurat.object.assay.version = old_opt)
+
               seurat_object[[assay_name]] <<- new_assay5
-              print(paste("  Converted back to Assay5 and replaced:", assay_name))
+              print(paste("  Replaced assay as Assay5:", assay_name))
 
             }, error = function(e) {
               print(paste("  Error processing Assay5:", e$message))
