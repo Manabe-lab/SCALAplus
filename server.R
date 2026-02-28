@@ -25253,9 +25253,9 @@ observeEvent(input$confirmGeneConversion, {
               rownames(counts_mat) <- new_gene_names
               print(paste("  Renamed counts:", length(new_gene_names), "genes"))
 
-              # v4 Assay として再構築
+              # Assay5 として直接再構築
               old_opt <- getOption("Seurat.object.assay.version")
-              options(Seurat.object.assay.version = "v3")
+              options(Seurat.object.assay.version = "v5")
 
               new_assay <- CreateAssayObject(counts = counts_mat)
 
@@ -25273,7 +25273,7 @@ observeEvent(input$confirmGeneConversion, {
                   na_mask_d <- is.na(data_new_names)
                   if (any(na_mask_d)) data_new_names[na_mask_d] <- rownames(data_mat)[na_mask_d]
                   rownames(data_mat) <- data_new_names
-                  new_assay <- SetAssayData(new_assay, slot = "data", new.data = data_mat)
+                  new_assay <- SetAssayData(new_assay, layer = "data", new.data = data_mat)
                   print(paste("  Updated data layer:", nrow(data_mat), "genes"))
                 }
               }
@@ -25291,10 +25291,12 @@ observeEvent(input$confirmGeneConversion, {
                   na_mask_s <- is.na(scale_new_names)
                   if (any(na_mask_s)) scale_new_names[na_mask_s] <- rownames(scale_mat)[na_mask_s]
                   rownames(scale_mat) <- scale_new_names
-                  new_assay <- SetAssayData(new_assay, slot = "scale.data", new.data = scale_mat)
+                  new_assay <- SetAssayData(new_assay, layer = "scale.data", new.data = scale_mat)
                   print(paste("  Updated scale.data layer:", nrow(scale_mat), "genes"))
                 }
               }
+
+              options(Seurat.object.assay.version = old_opt)
 
               # VariableFeatures
               if (length(VariableFeatures(seurat_object, assay = assay_name)) > 0) {
@@ -25307,12 +25309,8 @@ observeEvent(input$confirmGeneConversion, {
                 VariableFeatures(new_assay) <- new_var
               }
 
-              # Assay5 に変換して置換
-              options(Seurat.object.assay.version = "v5")
-              new_assay5 <- as(new_assay, "Assay5")
-              options(Seurat.object.assay.version = old_opt)
-
-              seurat_object[[assay_name]] <<- new_assay5
+              # 置換（既に Assay5 として作成済み）
+              seurat_object[[assay_name]] <<- new_assay
               print(paste("  Replaced assay as Assay5:", assay_name))
 
             }, error = function(e) {
