@@ -120,6 +120,7 @@ options(RCurlOptions = list(timeout = 0,
   shinyDirChoose(input, 'Multiple10XFolder', roots = volumes, session = session)
   shinyDirChoose(input, 'Multiple10XFolderSoup', roots = volumes, session = session)
   shinyDirChoose(input, 'SoupUnfiltered', roots = volumes, session = session)
+  shinyFileChoose(input, 'localMatrix', roots = volumes, session = session)
   shinyFileChoose(input, 'downloadlocaFile', roots = volumes,  session = session)
   shinyDirChoose(input, 'downloadlocaFolder', roots = volumes, session = session)
   shinyFileChoose(input, 'localscenicMatrix', roots = volumes, filetypes=c('csv', 'tsv', 'txt'), session = session)
