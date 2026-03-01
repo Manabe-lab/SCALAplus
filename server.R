@@ -25380,8 +25380,19 @@ observeEvent(input$confirmGeneConversion, {
         }
 
         print("Gene name update completed")
+
+        # Ensembl → symbol 変換後、percent.mt を再計算
+        # （変換前は Ensembl ID で ^mt-/^MT- にマッチしなかったため 0 になっている）
+        tryCatch({
+          mt_pattern <- if (organism == "mouse") "^mt-" else "^MT-"
+          seurat_object[["percent.mt"]] <<- PercentageFeatureSet(seurat_object, pattern = mt_pattern)
+          mt_mean <- mean(seurat_object@meta.data$percent.mt, na.rm = TRUE)
+          print(paste("Recalculated percent.mt after gene conversion (pattern:", mt_pattern, ", mean:", round(mt_mean, 2), "%)"))
+        }, error = function(e) {
+          print(paste("Warning: Could not recalculate percent.mt:", e$message))
+        })
       }
-      
+
       # Count successful conversions
       successfully_converted <- sum(converted_symbols != ensembl_genes)
       
