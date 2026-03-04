@@ -44,16 +44,32 @@ read_cellbender_h5 <- function(filepath) {
 
   unique_types <- unique(feature_types)
   if (length(unique_types) == 1) {
-    return(full_matrix)
+    result <- full_matrix
+  } else {
+    # Multiple feature types → return named list (like Read10X_h5)
+    result <- list()
+    for (ftype in unique_types) {
+      type_idx <- which(feature_types == ftype)
+      result[[ftype]] <- full_matrix[type_idx, , drop = FALSE]
+    }
   }
 
-  # Multiple feature types → return named list (like Read10X_h5)
-  result_list <- list()
-  for (ftype in unique_types) {
-    type_idx <- which(feature_types == ftype)
-    result_list[[ftype]] <- full_matrix[type_idx, , drop = FALSE]
+  # Read CellBender droplet latents if available
+  if ("droplet_latents" %in% names(h5file)) {
+    tryCatch({
+      dl <- h5file[["droplet_latents"]]
+      cb_latents <- data.frame(
+        row.names = barcodes,
+        cellbender_cell_probability = dl[["cell_probability"]][],
+        cellbender_background_fraction = dl[["background_fraction"]][]
+      )
+      attr(result, "cellbender_latents") <- cb_latents
+    }, error = function(e) {
+      message("Note: Could not read CellBender latents: ", e$message)
+    })
   }
-  return(result_list)
+
+  return(result)
 }
 
 users <- reactiveValues(count = 0) # https://stackoverflow.com/questions/47728208/how-many-users-are-connected-to-my-shiny-application
@@ -1679,6 +1695,20 @@ if (length(file_selected$datapath)  == 1) {
         seurat_object <<- CreateSeuratObject(counts = seurat_data, project = metaD$my_project_name, min.cells = as.numeric(minimum_cells), min.features = as.numeric(minimum_features))
         seurat_object@meta.data$orig.ident <<- as.factor(metaD$my_project_name) # 名前がtruncateされることがあるので追加
         })
+
+        # Add CellBender latents (cell_probability, background_fraction) to meta.data
+        cb_latents <- attr(seurat_data, "cellbender_latents")
+        if (!is.null(cb_latents)) {
+          cell_barcodes <- colnames(seurat_object)
+          matched <- cb_latents[cell_barcodes, , drop = FALSE]
+          if (nrow(matched) > 0 && !all(is.na(matched$cellbender_cell_probability))) {
+            seurat_object@meta.data$cellbender_cell_probability <<- matched$cellbender_cell_probability
+            seurat_object@meta.data$cellbender_background_fraction <<- matched$cellbender_background_fraction
+            showNotification("CellBender latents (cell_probability, background_fraction) added to meta.data", type = 'message', duration = 10)
+            print(paste("CellBender latents added:", ncol(seurat_object), "cells matched"))
+          }
+        }
+
         } else if (length(file_selected$datapath) > 1) {
         MultiSeurat <- list()
         multip <<- TRUE
@@ -1698,11 +1728,24 @@ if (length(file_selected$datapath)  == 1) {
                 MultiSeurat[[i]] <- CreateSeuratObject(counts = MultiSeurat_data[[i]], project = ident_names[i], min.cells = as.numeric(minimum_cells), min.features = as.numeric(minimum_features))
                 MultiSeurat[[i]]@meta.data$orig.ident <- as.factor(ident_names[i]) # 名前がtruncateされることがあるので追加
                 }
+            # Add CellBender latents per sample
+            cb_latents_i <- attr(MultiSeurat_data[[i]], "cellbender_latents")
+            if (!is.null(cb_latents_i)) {
+                cell_barcodes_i <- colnames(MultiSeurat[[i]])
+                # Cell names were prefixed with ident_names, strip prefix for matching
+                orig_barcodes_i <- sub(paste0("^", ident_names[i], "_"), "", cell_barcodes_i)
+                matched_i <- cb_latents_i[orig_barcodes_i, , drop = FALSE]
+                if (nrow(matched_i) > 0 && !all(is.na(matched_i$cellbender_cell_probability))) {
+                    MultiSeurat[[i]]@meta.data$cellbender_cell_probability <- matched_i$cellbender_cell_probability
+                    MultiSeurat[[i]]@meta.data$cellbender_background_fraction <- matched_i$cellbender_background_fraction
+                }
+            }
             }
           seurat_object <<- MultiSeurat[[1]]
           for (i in 2:uploaded_file_number ) {
           seurat_object <<- merge(seurat_object, MultiSeurat[[i]])
                    }
+          showNotification("CellBender latents added to meta.data", type = 'message', duration = 10)
         }
 
     # v5ではlayerをjointする
