@@ -3,75 +3,6 @@ credentials <- data.frame(
   password = c("inflammation")
 )
 
-# CellBender h5 reader: Read10X_h5 fails on CellBender files because
-# CellBender adds extra root groups (droplet_latents, global_latents, metadata).
-# This function reads the "matrix" group directly via hdf5r.
-read_cellbender_h5 <- function(filepath) {
-  # First try Read10X_h5 (works for standard Cell Ranger h5)
-  result <- tryCatch({
-    Read10X_h5(filepath, use.names = TRUE)
-  }, error = function(e) NULL)
-  if (!is.null(result)) return(result)
-
-  # Fallback: read CellBender h5 via hdf5r
-  if (!requireNamespace("hdf5r", quietly = TRUE)) stop("hdf5r package required")
-  h5file <- hdf5r::H5File$new(filepath, mode = "r")
-  on.exit(h5file$close(), add = TRUE)
-
-  if (!("matrix" %in% names(h5file))) {
-    stop("Unrecognized h5 file format: no 'matrix' group found.")
-  }
-
-  mat_group <- h5file[["matrix"]]
-  barcodes <- mat_group[["barcodes"]][]
-  data_vec <- mat_group[["data"]][]
-  indices  <- mat_group[["indices"]][]
-  indptr   <- mat_group[["indptr"]][]
-  shape    <- mat_group[["shape"]][]
-  features <- mat_group[["features/name"]][]
-  feature_types <- mat_group[["features/feature_type"]][]
-
-  # Make feature names unique (use "." separator like Seurat, not "_")
-  features <- make.unique(features, sep = ".")
-
-  full_matrix <- Matrix::sparseMatrix(
-    i = as.integer(indices) + 1L,
-    p = as.integer(indptr),
-    x = as.numeric(data_vec),
-    dims = shape,
-    dimnames = list(features, barcodes)
-  )
-
-  unique_types <- unique(feature_types)
-  if (length(unique_types) == 1) {
-    result <- full_matrix
-  } else {
-    # Multiple feature types → return named list (like Read10X_h5)
-    result <- list()
-    for (ftype in unique_types) {
-      type_idx <- which(feature_types == ftype)
-      result[[ftype]] <- full_matrix[type_idx, , drop = FALSE]
-    }
-  }
-
-  # Read CellBender droplet latents if available
-  if ("droplet_latents" %in% names(h5file)) {
-    tryCatch({
-      dl <- h5file[["droplet_latents"]]
-      cb_latents <- data.frame(
-        row.names = barcodes,
-        cellbender_cell_probability = dl[["cell_probability"]][],
-        cellbender_background_fraction = dl[["background_fraction"]][]
-      )
-      attr(result, "cellbender_latents") <- cb_latents
-    }, error = function(e) {
-      message("Note: Could not read CellBender latents: ", e$message)
-    })
-  }
-
-  return(result)
-}
-
 users <- reactiveValues(count = 0) # https://stackoverflow.com/questions/47728208/how-many-users-are-connected-to-my-shiny-application
 
 
@@ -1634,8 +1565,78 @@ library(DropletUtils)
           file_selected$datapath <- 1
           uploadCellBenderConfirmCount <<- input$uploadCellBenderConfirm
 
-          seurat_data <- read_cellbender_h5(input$CellBenderFile$datapath)
-          showNotification("CellBender h5 file loaded.", type = "message", duration = 5)
+          # Try to read CellBender h5 file
+          tryCatch({
+            seurat_data <- Read10X_h5(input$CellBenderFile$datapath, use.names = TRUE)
+          }, error = function(e) {
+            # If standard Read10X_h5 fails, try with hdf5r directly
+            showNotification("Standard reading failed, trying alternative method...", type = "warning", duration = 5)
+            library(hdf5r)
+            h5file <- H5File$new(input$CellBenderFile$datapath, mode = "r")
+
+            # CellBender output has matrix, features, and barcodes at root level
+            if ("matrix" %in% names(h5file)) {
+              # Read CellBender format
+              mat_group <- h5file[["matrix"]]
+              barcodes <- mat_group[["barcodes"]][]
+              data <- mat_group[["data"]][]
+              indices <- mat_group[["indices"]][]
+              indptr <- mat_group[["indptr"]][]
+              shape <- mat_group[["shape"]][]
+              features <- mat_group[["features/name"]][]
+
+              # Read feature types to separate different modalities
+              feature_types <- mat_group[["features/feature_type"]][]
+
+              # Decode bytes to strings if needed
+              if (is.raw(barcodes[1])) {
+                barcodes <- sapply(barcodes, rawToChar)
+              }
+              if (is.raw(features[1])) {
+                features <- sapply(features, rawToChar)
+              }
+              if (is.raw(feature_types[1])) {
+                feature_types <- sapply(feature_types, rawToChar)
+              }
+
+              # Make feature names unique (handle duplicates)
+              features <- make.unique(features, sep = "_")
+
+              # Create full sparse matrix first
+              library(Matrix)
+              full_matrix <- sparseMatrix(
+                i = as.integer(indices) + 1,
+                p = as.integer(indptr),
+                x = as.numeric(data),
+                dims = shape,
+                dimnames = list(features, barcodes)
+              )
+
+              # Separate by feature type (like Read10X_h5 does)
+              unique_types <- unique(feature_types)
+
+              if (length(unique_types) == 1) {
+                # Single feature type - return as matrix
+                seurat_data <<- full_matrix
+                showNotification(paste0("Loaded ", unique_types[1], " data (", nrow(full_matrix), " features)"),
+                               type = "message", duration = 5)
+              } else {
+                # Multiple feature types - return as list
+                seurat_data <<- list()
+                for (ftype in unique_types) {
+                  type_idx <- which(feature_types == ftype)
+                  seurat_data[[ftype]] <<- full_matrix[type_idx, , drop = FALSE]
+                  showNotification(paste0("Loaded ", ftype, " data (", length(type_idx), " features)"),
+                                 type = "message", duration = 5)
+                }
+              }
+            } else {
+              h5file$close()
+              stop("Unrecognized h5 file format. Please check if this is a CellBender output file.")
+            }
+            h5file$close()
+            showNotification("Successfully loaded CellBender file using alternative method.", type = "message", duration = 10)
+          })
           } else {
           if (uploadLocalCellBenderConfirmCount < input$uploadLocalCellBenderConfirm){
               uploadLocalCellBenderConfirmCount <<- input$uploadLocalCellBenderConfirm
@@ -1644,8 +1645,78 @@ library(DropletUtils)
                     if (length(file_selected$datapath) == 1){
                     print(as.character(file_selected$datapath))
 
-                   seurat_data <- read_cellbender_h5(as.character(file_selected$datapath))
-                   showNotification("CellBender h5 file loaded.", type = "message", duration = 5)
+                   # Try to read CellBender h5 file
+                   tryCatch({
+                     seurat_data <- Read10X_h5(file_selected$datapath, use.names = TRUE)
+                   }, error = function(e) {
+                     # If standard Read10X_h5 fails, try with hdf5r directly
+                     showNotification("Standard reading failed, trying alternative method...", type = "warning", duration = 5)
+                     library(hdf5r)
+                     h5file <- H5File$new(file_selected$datapath, mode = "r")
+
+                     # CellBender output has matrix, features, and barcodes at root level
+                     if ("matrix" %in% names(h5file)) {
+                       # Read CellBender format
+                       mat_group <- h5file[["matrix"]]
+                       barcodes <- mat_group[["barcodes"]][]
+                       data <- mat_group[["data"]][]
+                       indices <- mat_group[["indices"]][]
+                       indptr <- mat_group[["indptr"]][]
+                       shape <- mat_group[["shape"]][]
+                       features <- mat_group[["features/name"]][]
+
+                       # Read feature types to separate different modalities
+                       feature_types <- mat_group[["features/feature_type"]][]
+
+                       # Decode bytes to strings if needed
+                       if (is.raw(barcodes[1])) {
+                         barcodes <- sapply(barcodes, rawToChar)
+                       }
+                       if (is.raw(features[1])) {
+                         features <- sapply(features, rawToChar)
+                       }
+                       if (is.raw(feature_types[1])) {
+                         feature_types <- sapply(feature_types, rawToChar)
+                       }
+
+                       # Make feature names unique (handle duplicates)
+                       features <- make.unique(features, sep = "_")
+
+                       # Create full sparse matrix first
+                       library(Matrix)
+                       full_matrix <- sparseMatrix(
+                         i = as.integer(indices) + 1,
+                         p = as.integer(indptr),
+                         x = as.numeric(data),
+                         dims = shape,
+                         dimnames = list(features, barcodes)
+                       )
+
+                       # Separate by feature type (like Read10X_h5 does)
+                       unique_types <- unique(feature_types)
+
+                       if (length(unique_types) == 1) {
+                         # Single feature type - return as matrix
+                         seurat_data <<- full_matrix
+                         showNotification(paste0("Loaded ", unique_types[1], " data (", nrow(full_matrix), " features)"),
+                                        type = "message", duration = 5)
+                       } else {
+                         # Multiple feature types - return as list
+                         seurat_data <<- list()
+                         for (ftype in unique_types) {
+                           type_idx <- which(feature_types == ftype)
+                           seurat_data[[ftype]] <<- full_matrix[type_idx, , drop = FALSE]
+                           showNotification(paste0("Loaded ", ftype, " data (", length(type_idx), " features)"),
+                                          type = "message", duration = 5)
+                         }
+                       }
+                     } else {
+                       h5file$close()
+                       stop("Unrecognized h5 file format. Please check if this is a CellBender output file.")
+                     }
+                     h5file$close()
+                     showNotification("Successfully loaded CellBender file using alternative method.", type = "message", duration = 10)
+                   })
                    } else if (length(file_selected$datapath) > 1) {
                     library(fs)
                     MultiSeurat_data <- list()
@@ -1655,21 +1726,90 @@ library(DropletUtils)
                     for (i in file_selected$datapath) {
                       print(as.character(i))
                       ident_names <- c(ident_names, str_replace(path_file(i), '_filtered_feature_bc_matrix.h5',''))
-                      MultiSeurat_data[[j]] <- read_cellbender_h5(as.character(i))
+
+                      # Try to read CellBender h5 file
+                      MultiSeurat_data[[j]] <- tryCatch({
+                        Read10X_h5(as.character(i), use.names = TRUE)
+                      }, error = function(e) {
+                        # If standard Read10X_h5 fails, try with hdf5r directly
+                        showNotification(paste("Standard reading failed for file", j, ", trying alternative method..."), type = "warning", duration = 5)
+                        library(hdf5r)
+                        h5file <- H5File$new(as.character(i), mode = "r")
+
+                        # CellBender output has matrix, features, and barcodes at root level
+                        if ("matrix" %in% names(h5file)) {
+                          # Read CellBender format
+                          mat_group <- h5file[["matrix"]]
+                          barcodes <- mat_group[["barcodes"]][]
+                          data <- mat_group[["data"]][]
+                          indices <- mat_group[["indices"]][]
+                          indptr <- mat_group[["indptr"]][]
+                          shape <- mat_group[["shape"]][]
+                          features <- mat_group[["features/name"]][]
+
+                          # Read feature types to separate different modalities
+                          feature_types <- mat_group[["features/feature_type"]][]
+
+                          # Decode bytes to strings if needed
+                          if (is.raw(barcodes[1])) {
+                            barcodes <- sapply(barcodes, rawToChar)
+                          }
+                          if (is.raw(features[1])) {
+                            features <- sapply(features, rawToChar)
+                          }
+                          if (is.raw(feature_types[1])) {
+                            feature_types <- sapply(feature_types, rawToChar)
+                          }
+
+                          # Make feature names unique (handle duplicates)
+                          features <- make.unique(features, sep = "_")
+
+                          # Create full sparse matrix first
+                          library(Matrix)
+                          full_matrix <- sparseMatrix(
+                            i = as.integer(indices) + 1,
+                            p = as.integer(indptr),
+                            x = as.numeric(data),
+                            dims = shape,
+                            dimnames = list(features, barcodes)
+                          )
+
+                          # Separate by feature type (like Read10X_h5 does)
+                          unique_types <- unique(feature_types)
+
+                          if (length(unique_types) == 1) {
+                            # Single feature type - return as matrix
+                            result <- full_matrix
+                            showNotification(paste0("File ", j, ": Loaded ", unique_types[1], " data (", nrow(full_matrix), " features)"),
+                                           type = "message", duration = 5)
+                          } else {
+                            # Multiple feature types - return as list
+                            result <- list()
+                            for (ftype in unique_types) {
+                              type_idx <- which(feature_types == ftype)
+                              result[[ftype]] <- full_matrix[type_idx, , drop = FALSE]
+                              showNotification(paste0("File ", j, ": Loaded ", ftype, " data (", length(type_idx), " features)"),
+                                             type = "message", duration = 5)
+                            }
+                          }
+
+                          h5file$close()
+                          result
+                        } else {
+                          h5file$close()
+                          stop("Unrecognized h5 file format. Please check if this is a CellBender output file.")
+                        }
+                      })
+
                       j=j+1
                     }
                      uploaded_file_number <- j - 1 # file数
 
              # mergeのときに同じ名前があるエラーが出るため、予め細胞名を修正する
               for (i in 1:uploaded_file_number ) {
-                # MultiSeurat_data[[i]] がlistの場合は各要素のcolnamesを修正
-                if (is.list(MultiSeurat_data[[i]]) && !is(MultiSeurat_data[[i]], "dgCMatrix")) {
-                  for (nm in names(MultiSeurat_data[[i]])) {
-                    colnames(MultiSeurat_data[[i]][[nm]]) <- paste0(ident_names[i], '_', colnames(MultiSeurat_data[[i]][[nm]]))
-                  }
-                } else {
-                  colnames(MultiSeurat_data[[i]]) <- paste0(ident_names[i], '_', colnames(MultiSeurat_data[[i]]))
-                }
+              cell_names <- colnames(MultiSeurat_data[[i]])
+              new_cell_names <- paste0(ident_names[i], '_', cell_names)
+              colnames(MultiSeurat_data[[i]]) <-  new_cell_names
               }
             } else  {return()}
           } else  {return()}
@@ -1695,20 +1835,6 @@ if (length(file_selected$datapath)  == 1) {
         seurat_object <<- CreateSeuratObject(counts = seurat_data, project = metaD$my_project_name, min.cells = as.numeric(minimum_cells), min.features = as.numeric(minimum_features))
         seurat_object@meta.data$orig.ident <<- as.factor(metaD$my_project_name) # 名前がtruncateされることがあるので追加
         })
-
-        # Add CellBender latents (cell_probability, background_fraction) to meta.data
-        cb_latents <- attr(seurat_data, "cellbender_latents")
-        if (!is.null(cb_latents)) {
-          cell_barcodes <- colnames(seurat_object)
-          matched <- cb_latents[cell_barcodes, , drop = FALSE]
-          if (nrow(matched) > 0 && !all(is.na(matched$cellbender_cell_probability))) {
-            seurat_object@meta.data$cellbender_cell_probability <<- matched$cellbender_cell_probability
-            seurat_object@meta.data$cellbender_background_fraction <<- matched$cellbender_background_fraction
-            showNotification("CellBender latents (cell_probability, background_fraction) added to meta.data", type = 'message', duration = 10)
-            print(paste("CellBender latents added:", ncol(seurat_object), "cells matched"))
-          }
-        }
-
         } else if (length(file_selected$datapath) > 1) {
         MultiSeurat <- list()
         multip <<- TRUE
@@ -1728,38 +1854,20 @@ if (length(file_selected$datapath)  == 1) {
                 MultiSeurat[[i]] <- CreateSeuratObject(counts = MultiSeurat_data[[i]], project = ident_names[i], min.cells = as.numeric(minimum_cells), min.features = as.numeric(minimum_features))
                 MultiSeurat[[i]]@meta.data$orig.ident <- as.factor(ident_names[i]) # 名前がtruncateされることがあるので追加
                 }
-            # Add CellBender latents per sample
-            cb_latents_i <- attr(MultiSeurat_data[[i]], "cellbender_latents")
-            if (!is.null(cb_latents_i)) {
-                cell_barcodes_i <- colnames(MultiSeurat[[i]])
-                # Cell names were prefixed with ident_names, strip prefix for matching
-                orig_barcodes_i <- sub(paste0("^", ident_names[i], "_"), "", cell_barcodes_i)
-                matched_i <- cb_latents_i[orig_barcodes_i, , drop = FALSE]
-                if (nrow(matched_i) > 0 && !all(is.na(matched_i$cellbender_cell_probability))) {
-                    MultiSeurat[[i]]@meta.data$cellbender_cell_probability <- matched_i$cellbender_cell_probability
-                    MultiSeurat[[i]]@meta.data$cellbender_background_fraction <- matched_i$cellbender_background_fraction
-                }
-            }
             }
           seurat_object <<- MultiSeurat[[1]]
           for (i in 2:uploaded_file_number ) {
           seurat_object <<- merge(seurat_object, MultiSeurat[[i]])
                    }
-          showNotification("CellBender latents added to meta.data", type = 'message', duration = 10)
         }
 
     # v5ではlayerをjointする
         if (is_assay5(seurat_object)){
-          layer_names <- Layers(seurat_object)
-          print(paste("Layers before JoinLayers:", paste(layer_names, collapse=", ")))
-          if (length(layer_names) > 1) {
-            tryCatch({
-              seurat_object <<- JoinLayers(seurat_object)
-            }, error = function(e) {
-              showNotification(paste("JoinLayers warning:", e$message, ". Continuing without joining."), type = 'warning', duration=30)
-              print(paste("JoinLayers error:", e$message))
-            })
-          }
+tryCatch({
+          seurat_object <<- JoinLayers(seurat_object)
+              }, error = function(e) {
+      showNotification(paste("Error :  ", e), type = 'error', duration=200)
+})
         }
 
         print('multiplexing flag')
