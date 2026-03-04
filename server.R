@@ -9203,44 +9203,28 @@ withProgress(message = 'Calculation in progress', value=0.1, {
           tryCatch({
             dmm <- demuxmix(hto, rna = rna)
 
+          # Register results to meta.data first (before plot)
+          incProgress(0.2)
+          seurat_object@meta.data$demuxmix_hash_re <<-  factor(dmmClassify(dmm)$HTO)
+          showNotification("demuxmix classifications are added to demuxmix_hash_re", type = 'message', duration = 100)
+
           # Plot generation
-          incProgress(0.3)
+          incProgress(0.2)
           hash_num <- length(dmm@models)
           for (x in 1:hash_num){
             var_n <- paste0('p', as.character(x))
             assign(var_n, plotDmmHistogram(dmm, hto=x))
           }
-          switch(as.character(hash_num ),
-                 '1' = {
-                   p <- p1
-                 },
-                 '2' = {
-                   p <- cowplot::plot_grid(p1, p2, nrow = 1)
-                 },
-                 '3' = {
-                   p <- cowplot::plot_grid(p1, p2, p3, nrow = 1)
-                 },
-                 '4' = {
-                   p <- cowplot::plot_grid(p1, p2, p3,p4, nrow = 2)
-                 },
-                 '5' = {
-                   p <- cowplot::plot_grid(p1, p2, p3,p4, p5, nrow = 2)
-                 },
-                 '6' = {
-                   p <- cowplot::plot_grid(p1, p2, p3,p4, p5, p6, nrow = 2)
-                 },
-                 '7' = {
-                   p <- cowplot::plot_grid(p1, p2, p3,p4, p5, p6,p7, nrow = 3)
-                 },
-                 '8' = {
-                   p <- cowplot::plot_grid(p1, p2, p3, p4, p5, p6,p7,p8, nrow = 3)
-                 }
-          )
+          p <- if (hash_num == 1) {
+            p1
+          } else {
+            plot_list <- mget(paste0('p', seq_len(hash_num)))
+            nrow_val <- ceiling(hash_num / 3)
+            cowplot::plot_grid(plotlist = plot_list, nrow = nrow_val)
+          }
 
-          incProgress(0.2)
+          incProgress(0.1)
           output$demuxmixPlot <- renderPlot({print(p)}, height=250*(floor(hash_num/3)+1), width=800)
-          seurat_object@meta.data$demuxmix_hash_re <<-  factor(dmmClassify(dmm)$HTO)
-          showNotification("demuxmix classifications are added to demuxmix_hash_re", type = 'message', duration = 100)
         }, error = function(e){
           showNotification("demuxmix error. HTODemux and MULTIseqDemux results are still available.", type='warning', duration=30)
           print(paste("Demuxmix error details:", e$message))
