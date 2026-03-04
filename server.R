@@ -9210,38 +9210,30 @@ withProgress(message = 'Calculation in progress', value=0.1, {
             var_n <- paste0('p', as.character(x))
             assign(var_n, plotDmmHistogram(dmm, hto=x))
           }
-          # Load cowplot for plot grid
-          if (!"cowplot" %in% loadedNamespaces()) {
-            if (!requireNamespace("cowplot", quietly = TRUE)) {
-              showNotification("cowplot package not available, skipping plot grid", type='warning')
-            } else {
-              suppressPackageStartupMessages(library(cowplot))
-            }
-          }
           switch(as.character(hash_num ),
                  '1' = {
                    p <- p1
                  },
                  '2' = {
-                   p <-  plot_grid(p1, p2, nrow = 1)
+                   p <- cowplot::plot_grid(p1, p2, nrow = 1)
                  },
                  '3' = {
-                   p <-  plot_grid(p1, p2, p3, nrow = 1)
+                   p <- cowplot::plot_grid(p1, p2, p3, nrow = 1)
                  },
                  '4' = {
-                   p <-  plot_grid(p1, p2, p3,p4, nrow = 2)
+                   p <- cowplot::plot_grid(p1, p2, p3,p4, nrow = 2)
                  },
                  '5' = {
-                   p <-  plot_grid(p1, p2, p3,p4, p5, nrow = 2)
+                   p <- cowplot::plot_grid(p1, p2, p3,p4, p5, nrow = 2)
                  },
                  '6' = {
-                   p <-  plot_grid(p1, p2, p3,p4, p5, p6, nrow = 2)
+                   p <- cowplot::plot_grid(p1, p2, p3,p4, p5, p6, nrow = 2)
                  },
                  '7' = {
-                   p <-  plot_grid(p1, p2, p3,p4, p5, p6,p7, nrow = 3)
+                   p <- cowplot::plot_grid(p1, p2, p3,p4, p5, p6,p7, nrow = 3)
                  },
                  '8' = {
-                   p <-  plot_grid(p1, p2, p3, p4, p5, p6,p7,p8, nrow = 3)
+                   p <- cowplot::plot_grid(p1, p2, p3, p4, p5, p6,p7,p8, nrow = 3)
                  }
           )
 
