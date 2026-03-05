@@ -18682,7 +18682,7 @@ observeEvent(input$scDblFinderConfirm, {
         dbr = dbr_val,
         dbr.sd = dbr_sd_val,
         dims = as.numeric(input$scDblFinderNDims),
-        BPPARAM = SerialParam(RNGseed = 1234)
+        BPPARAM = SnowParam(workers = as.numeric(input$scDblFinderNThreads), RNGseed = 1234)
       )
 
       # Add clusters parameter if enabled
