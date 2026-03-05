@@ -135,6 +135,10 @@ options(RCurlOptions = list(timeout = 0,
   shinyFileChoose(input, 'velocytoGTFfile', roots = volumes, filetypes=c('gtf', 'GTF', 'gtf.gz', 'GTF.gz'), session = session)
   shinyFileChoose(input, 'velocytoMaskGTF', roots = volumes, filetypes=c('gtf', 'GTF', 'gtf.gz', 'GTF.gz'), session = session)
 
+  # DropletQC file selection
+  shinyFileChoose(input, 'dropletqcBAMfile', roots = volumes, filetypes=c('bam'), session = session)
+  shinyFileChoose(input, 'dropletqcGTFfile', roots = volumes, filetypes=c('gtf', 'GTF', 'gtf.gz', 'GTF.gz'), session = session)
+
   volumes2 <- c(Home = '/home/lab/sftp-data/SCALA-data/SCALA-upload', getVolumes()())
   shinyFileSave(input, 'saveRDSfile', roots = volumes2,  session = session)
     shinyFileSave(input, 'saveQSfile', roots = volumes2,  session = session)
@@ -28098,5 +28102,393 @@ pca_select <- pca_match[length(pca_match)]
       }
     }
   )
+
+  # ============================================================================
+  # DropletQC - Detect empty droplets & damaged cells
+  # ============================================================================
+
+  # Reactive values for DropletQC
+  dropletqc_nf_umi <- reactiveVal(NULL)
+  dropletqc_result <- reactiveVal(NULL)
+
+  # --- Helper: strip barcode suffix ---
+  strip_barcode_suffix <- function(barcodes) {
+    sub("_\\d+$", "", barcodes)
+  }
+
+  # --- BAM file path display ---
+  output$dropletqcBAMpath <- renderText({
+    if (!is.null(input$dropletqcBAMfile) && !is.integer(input$dropletqcBAMfile)) {
+      bam_file_info <- parseFilePaths(volumes, input$dropletqcBAMfile)
+      return(as.character(bam_file_info$datapath))
+    }
+    "No file selected"
+  })
+
+  # --- GTF file path display ---
+  output$dropletqcGTFpath <- renderText({
+    if (!is.null(input$dropletqcGTFfile) && !is.integer(input$dropletqcGTFfile)) {
+      gtf_file_info <- parseFilePaths(volumes, input$dropletqcGTFfile)
+      return(as.character(gtf_file_info$datapath))
+    }
+    "No file selected"
+  })
+
+  # --- Update sample column choices when Seurat object changes ---
+  observe({
+    req(seurat_object)
+    meta_cols <- colnames(seurat_object@meta.data)
+    updateSelectInput(session, "dropletqcSampleCol",
+      choices = meta_cols, selected = "orig.ident")
+    updateSelectInput(session, "dropletqcCelltypeCol",
+      choices = meta_cols, selected = NULL)
+
+    # Show/hide multi-sample warning
+    n_samples <- length(unique(seurat_object$orig.ident))
+    if (n_samples > 1) {
+      shinyjs::show("dropletqc_multisample_warning")
+    } else {
+      shinyjs::hide("dropletqc_multisample_warning")
+    }
+  })
+
+  # --- Update sample name choices when sample column changes ---
+  observeEvent(input$dropletqcSampleCol, {
+    req(seurat_object)
+    req(input$dropletqcSampleCol)
+    if (input$dropletqcSampleCol %in% colnames(seurat_object@meta.data)) {
+      sample_names <- sort(unique(seurat_object@meta.data[[input$dropletqcSampleCol]]))
+      updateSelectInput(session, "dropletqcSampleName",
+        choices = sample_names, selected = sample_names[1])
+    }
+  })
+
+  # --- Step 4: Calculate Nuclear Fraction ---
+  observeEvent(input$RunDropletQCnf, {
+    req(seurat_object)
+
+    # Validate BAM file selection
+    if (is.null(input$dropletqcBAMfile) || is.integer(input$dropletqcBAMfile)) {
+      showNotification("Please select a BAM file first.", type = "error", duration = 5)
+      return()
+    }
+
+    bam_info <- parseFilePaths(volumes, input$dropletqcBAMfile)
+    bam_path <- as.character(bam_info$datapath)
+
+    if (!file.exists(bam_path)) {
+      showNotification(paste("BAM file not found:", bam_path), type = "error", duration = 5)
+      return()
+    }
+
+    # Determine which cells to process
+    n_samples <- length(unique(seurat_object@meta.data[[input$dropletqcSampleCol]]))
+    if (n_samples > 1 && !is.null(input$dropletqcSampleName)) {
+      # Multi-sample: subset to selected sample
+      sample_cells <- colnames(seurat_object)[
+        seurat_object@meta.data[[input$dropletqcSampleCol]] == input$dropletqcSampleName
+      ]
+      barcodes <- strip_barcode_suffix(sample_cells)
+    } else {
+      # Single sample: use all cells
+      sample_cells <- colnames(seurat_object)
+      barcodes <- strip_barcode_suffix(sample_cells)
+    }
+
+    # Write barcodes to temp file
+    barcode_tmp <- tempfile(fileext = ".tsv")
+    writeLines(barcodes, barcode_tmp)
+
+    withProgress(message = "Calculating nuclear fraction...", value = 0, {
+      tryCatch({
+        if (input$dropletqcMethod == "tags") {
+          incProgress(0.1, detail = "Using RE tags method")
+          nf <- DropletQC::nuclear_fraction_tags(
+            bam = bam_path,
+            barcodes = barcode_tmp,
+            cores = input$dropletqcCores,
+            tiles = input$dropletqcTiles,
+            verbose = TRUE
+          )
+        } else {
+          # Resolve GTF path
+          gtf_base <- "./GTF"
+          if (input$dropletqcGTFsource == "custom") {
+            if (is.null(input$dropletqcGTFfile) || is.integer(input$dropletqcGTFfile)) {
+              showNotification("Please select a custom GTF file.", type = "error", duration = 5)
+              return()
+            }
+            gtf_info <- parseFilePaths(volumes, input$dropletqcGTFfile)
+            gtf_file <- as.character(gtf_info$datapath)
+          } else {
+            gtf_file <- switch(input$dropletqcGTFsource,
+              "GRCh38-2024" = file.path(gtf_base, "refdata-gex-GRCh38-2024-A/genes/genes.gtf.gz"),
+              "GRCh38-2020" = file.path(gtf_base, "refdata-gex-GRCh38-2020-A/genes/genes.gtf"),
+              "GRCm39-2024" = file.path(gtf_base, "refdata-gex-GRCm39-2024-A/genes/genes.gtf.gz"),
+              "mm10-2020"   = file.path(gtf_base, "mm10-2020A/genes/genes.gtf"),
+              NULL
+            )
+          }
+
+          if (is.null(gtf_file) || !file.exists(gtf_file)) {
+            showNotification("GTF file not found. Check your selection.", type = "error", duration = 5)
+            return()
+          }
+
+          incProgress(0.1, detail = "Using GTF annotation method")
+          nf <- DropletQC::nuclear_fraction_annotation(
+            annotation_path = gtf_file,
+            bam = bam_path,
+            barcodes = barcode_tmp,
+            cores = input$dropletqcCores,
+            tiles = input$dropletqcTiles,
+            verbose = TRUE
+          )
+        }
+
+        incProgress(0.8, detail = "Updating Seurat object")
+
+        # Map NF values back to Seurat object
+        # nf$nuclear_fraction is named by barcode (without suffix)
+        nf_values <- nf$nuclear_fraction
+        names(nf_values) <- barcodes
+
+        # Write NF to metadata for the processed cells
+        if (!"nuclear_fraction" %in% colnames(seurat_object@meta.data)) {
+          seurat_object$nuclear_fraction <<- NA_real_
+        }
+        seurat_object@meta.data[sample_cells, "nuclear_fraction"] <<- nf_values
+
+        # Build NF + UMI data frame for all cells that have NF values
+        cells_with_nf <- colnames(seurat_object)[!is.na(seurat_object$nuclear_fraction)]
+        nf_umi_df <- data.frame(
+          nuclear_fraction = seurat_object@meta.data[cells_with_nf, "nuclear_fraction"],
+          umi_count = seurat_object@meta.data[cells_with_nf, "nCount_RNA"],
+          row.names = cells_with_nf
+        )
+        dropletqc_nf_umi(nf_umi_df)
+
+        incProgress(1, detail = "Done!")
+        showNotification(
+          paste("Nuclear fraction calculated for", length(sample_cells), "cells."),
+          type = "message", duration = 10
+        )
+
+      }, error = function(e) {
+        showNotification(paste("Error:", e$message), type = "error", duration = 15)
+      })
+    })
+
+    # Clean up
+    unlink(barcode_tmp)
+  })
+
+  # --- NF status display ---
+  output$dropletqcNFstatus <- renderText({
+    nf_umi <- dropletqc_nf_umi()
+    if (is.null(nf_umi)) {
+      return("Nuclear fraction not yet calculated.")
+    }
+    paste0("Nuclear fraction calculated for ", nrow(nf_umi), " cells.\n",
+           "NF range: ", round(min(nf_umi$nuclear_fraction, na.rm = TRUE), 4),
+           " - ", round(max(nf_umi$nuclear_fraction, na.rm = TRUE), 4))
+  })
+
+  # --- Step 5: Identify Empty Droplets ---
+  observeEvent(input$RunDropletQCempty, {
+    nf_umi <- dropletqc_nf_umi()
+    if (is.null(nf_umi)) {
+      showNotification("Please calculate nuclear fraction first (Step 4).", type = "error", duration = 5)
+      return()
+    }
+
+    withProgress(message = "Identifying empty droplets...", value = 0.3, {
+      tryCatch({
+        result_ed <- DropletQC::identify_empty_drops(
+          nf_umi = nf_umi,
+          nf_rescue = input$dropletqcNFrescue,
+          umi_rescue = input$dropletqcUMIrescue
+        )
+
+        # Store result and update Seurat metadata
+        dropletqc_result(result_ed)
+        seurat_object@meta.data[rownames(result_ed), "dropletQC_status"] <<- result_ed$cell_status
+
+        n_empty <- sum(result_ed$cell_status == "empty_droplet")
+        n_cell <- sum(result_ed$cell_status == "cell")
+
+        incProgress(1, detail = "Done!")
+        showNotification(
+          paste0("Empty droplets identified: ", n_empty, " empty, ", n_cell, " cells."),
+          type = "message", duration = 10
+        )
+      }, error = function(e) {
+        showNotification(paste("Error:", e$message), type = "error", duration = 15)
+      })
+    })
+  })
+
+  # --- Step 6: Identify Damaged Cells ---
+  observeEvent(input$RunDropletQCdamaged, {
+    result_df <- dropletqc_result()
+    if (is.null(result_df)) {
+      showNotification("Please identify empty droplets first (Step 5).", type = "error", duration = 5)
+      return()
+    }
+
+    if (is.null(input$dropletqcCelltypeCol) || input$dropletqcCelltypeCol == "") {
+      showNotification("Please select a cell type column.", type = "error", duration = 5)
+      return()
+    }
+
+    withProgress(message = "Identifying damaged cells...", value = 0.3, {
+      tryCatch({
+        # Add cell type information
+        nf_umi_ed_ct <- result_df
+        nf_umi_ed_ct$cell_type <- seurat_object@meta.data[rownames(nf_umi_ed_ct), input$dropletqcCelltypeCol]
+
+        result_dc <- DropletQC::identify_damaged_cells(
+          nf_umi_ed_ct = nf_umi_ed_ct,
+          nf_sep = input$dropletqcNFsep,
+          umi_sep_perc = input$dropletqcUMIsepPerc,
+          verbose = TRUE
+        )
+
+        # Update result and Seurat metadata
+        dropletqc_result(result_dc$df)
+        seurat_object@meta.data[rownames(result_dc$df), "dropletQC_status"] <<- result_dc$df$cell_status
+
+        n_damaged <- sum(result_dc$df$cell_status == "damaged_cell")
+        n_cell <- sum(result_dc$df$cell_status == "cell")
+        n_empty <- sum(result_dc$df$cell_status == "empty_droplet")
+
+        incProgress(1, detail = "Done!")
+        showNotification(
+          paste0("Results: ", n_cell, " cells, ", n_empty, " empty, ", n_damaged, " damaged."),
+          type = "message", duration = 10
+        )
+      }, error = function(e) {
+        showNotification(paste("Error:", e$message), type = "error", duration = 15)
+      })
+    })
+  })
+
+  # --- NF vs UMI Scatter Plot ---
+  output$dropletqcScatter <- plotly::renderPlotly({
+    result_df <- dropletqc_result()
+    req(result_df)
+
+    df <- result_df
+    df$log10_umi <- log10(df$umi_count + 1)
+
+    color_map <- c("cell" = "#2196F3", "empty_droplet" = "#f44336", "damaged_cell" = "#9C27B0")
+    present_statuses <- unique(df$cell_status)
+    colors_use <- color_map[present_statuses]
+
+    p <- ggplot(df, aes(x = nuclear_fraction, y = log10_umi, color = cell_status)) +
+      geom_point(alpha = 0.5, size = 0.8) +
+      scale_color_manual(values = colors_use) +
+      theme_bw() +
+      labs(x = "Nuclear Fraction", y = "log10(UMI count)", color = "Status") +
+      theme(legend.position = "bottom")
+
+    plotly::ggplotly(p) %>%
+      plotly::layout(legend = list(orientation = "h", y = -0.15))
+  })
+
+  # --- NF Distribution Histogram ---
+  output$dropletqcNFhist <- renderPlot({
+    nf_umi <- dropletqc_nf_umi()
+    req(nf_umi)
+
+    result_df <- dropletqc_result()
+    if (!is.null(result_df)) {
+      # Color by status if available
+      df <- result_df
+      color_map <- c("cell" = "#2196F3", "empty_droplet" = "#f44336", "damaged_cell" = "#9C27B0")
+      ggplot(df, aes(x = nuclear_fraction, fill = cell_status)) +
+        geom_histogram(bins = 100, alpha = 0.7, position = "identity") +
+        scale_fill_manual(values = color_map) +
+        theme_bw() +
+        labs(x = "Nuclear Fraction", y = "Count", fill = "Status", title = "Nuclear Fraction Distribution")
+    } else {
+      ggplot(nf_umi, aes(x = nuclear_fraction)) +
+        geom_histogram(bins = 100, fill = "#2196F3", alpha = 0.7) +
+        geom_density(aes(y = after_stat(count)), color = "red", linewidth = 0.8) +
+        theme_bw() +
+        labs(x = "Nuclear Fraction", y = "Count", title = "Nuclear Fraction Distribution")
+    }
+  })
+
+  # --- Summary Text ---
+  output$dropletqcSummary <- renderText({
+    result_df <- dropletqc_result()
+    if (is.null(result_df)) {
+      nf_umi <- dropletqc_nf_umi()
+      if (is.null(nf_umi)) {
+        return("No DropletQC results yet. Run Steps 4-6 to generate results.")
+      }
+      return(paste0("Nuclear fraction calculated for ", nrow(nf_umi), " cells.\n",
+                     "Run Step 5 (Identify Empty Droplets) to classify cells."))
+    }
+
+    status_counts <- table(result_df$cell_status)
+    lines <- c("=== DropletQC Summary ===", "")
+    for (s in names(status_counts)) {
+      lines <- c(lines, paste0("  ", s, ": ", status_counts[s]))
+    }
+    lines <- c(lines, "", paste0("  Total: ", nrow(result_df)))
+    paste(lines, collapse = "\n")
+  })
+
+  # --- Summary Table ---
+  output$dropletqcTable <- DT::renderDataTable({
+    result_df <- dropletqc_result()
+    req(result_df)
+
+    display_df <- data.frame(
+      Barcode = rownames(result_df),
+      Nuclear_Fraction = round(result_df$nuclear_fraction, 4),
+      UMI_Count = result_df$umi_count,
+      Status = result_df$cell_status
+    )
+
+    DT::datatable(display_df,
+      options = list(pageLength = 20, scrollX = TRUE),
+      filter = "top",
+      rownames = FALSE
+    )
+  })
+
+  # --- Step 7: Filter cells ---
+  observeEvent(input$DropletQCfilter, {
+    req(seurat_object)
+
+    if (!"dropletQC_status" %in% colnames(seurat_object@meta.data)) {
+      showNotification("Please run DropletQC classification first.", type = "error", duration = 5)
+      return()
+    }
+
+    n_before <- ncol(seurat_object)
+    cells_keep <- colnames(seurat_object)[seurat_object$dropletQC_status == "cell" | is.na(seurat_object$dropletQC_status)]
+
+    if (length(cells_keep) == 0) {
+      showNotification("No cells would remain after filtering. Aborting.", type = "error", duration = 5)
+      return()
+    }
+
+    seurat_object <<- subset(seurat_object, cells = cells_keep)
+    n_after <- ncol(seurat_object)
+    n_removed <- n_before - n_after
+
+    # Reset DropletQC reactive values
+    dropletqc_nf_umi(NULL)
+    dropletqc_result(NULL)
+
+    showNotification(
+      paste0("Filtered: removed ", n_removed, " cells (", n_before, " -> ", n_after, ")."),
+      type = "message", duration = 10
+    )
+  })
 
 }

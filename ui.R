@@ -1934,6 +1934,148 @@ tabsetPanel(
                       )
               ),
 
+              tabPanel("DropletQC", fluidRow(
+                box(status = "info", solidHeader = TRUE, title = "DropletQC Settings", width = 4,
+                  tags$h4("DropletQC - Detect empty droplets & damaged cells"),
+                  tags$hr(),
+                  tags$div(
+                    style = "background-color: #d1ecf1; padding: 10px; border-radius: 5px; margin-bottom: 10px; border-left: 4px solid #17a2b8;",
+                    tags$p(
+                      style = "margin: 0; font-size: 0.9em;",
+                      tags$b("Reference:"), " Muskovic & Powell (2021) Genome Biology",
+                      tags$br(),
+                      "DropletQC calculates the nuclear fraction (intronic reads / total reads) from BAM files to identify empty droplets and damaged cells."
+                    )
+                  ),
+
+                  # Multi-sample warning
+                  tags$div(
+                    id = "dropletqc_multisample_warning",
+                    style = "background-color: #fff3cd; padding: 10px; border-radius: 5px; margin-bottom: 10px; border-left: 4px solid #ffc107; display: none;",
+                    tags$p(
+                      style = "margin: 0; font-size: 0.9em;",
+                      tags$b("Multi-sample object detected."),
+                      " Please process one sample at a time. Select the sample column and sample name below, then provide the corresponding BAM file."
+                    )
+                  ),
+
+                  # Sample selection for merged objects
+                  tags$h5("Sample Selection (for merged objects)"),
+                  selectInput("dropletqcSampleCol", "Sample column:",
+                    choices = NULL, selected = NULL),
+                  selectInput("dropletqcSampleName", "Sample to process:",
+                    choices = NULL, selected = NULL),
+                  tags$hr(),
+
+                  # Step 1: BAM File
+                  tags$h5("Step 1: Select BAM File"),
+                  shinyFilesButton(id = "dropletqcBAMfile",
+                    label = "Select BAM file",
+                    title = "Select BAM file from Cell Ranger output",
+                    multiple = FALSE,
+                    class = "btn btn-default"),
+                  tags$br(), tags$br(),
+                  verbatimTextOutput("dropletqcBAMpath"),
+                  tags$hr(),
+
+                  # Step 2: Method
+                  tags$h5("Step 2: NF Calculation Method"),
+                  radioButtons("dropletqcMethod", "Method:",
+                    choices = list(
+                      "RE tags (Cell Ranger BAM)" = "tags",
+                      "GTF annotation" = "annotation"
+                    ),
+                    selected = "tags"),
+                  conditionalPanel(
+                    condition = "input.dropletqcMethod == 'annotation'",
+                    selectInput("dropletqcGTFsource",
+                      label = "Select reference genome:",
+                      choices = list(
+                        "Human GRCh38 (2024-A)" = "GRCh38-2024",
+                        "Human GRCh38 (2020-A)" = "GRCh38-2020",
+                        "Mouse GRCm39 (2024-A)" = "GRCm39-2024",
+                        "Mouse mm10 (2020-A)" = "mm10-2020",
+                        "Custom GTF file" = "custom"
+                      ),
+                      selected = "mm10-2020"),
+                    conditionalPanel(
+                      condition = "input.dropletqcGTFsource == 'custom'",
+                      shinyFilesButton(id = "dropletqcGTFfile",
+                        label = "Select GTF file",
+                        title = "Select GTF annotation file",
+                        multiple = FALSE,
+                        class = "btn btn-default"),
+                      tags$br(), tags$br(),
+                      verbatimTextOutput("dropletqcGTFpath")
+                    )
+                  ),
+                  tags$hr(),
+
+                  # Step 3: Parameters
+                  tags$h5("Step 3: Parameters"),
+                  numericInput("dropletqcCores", "Number of cores:", value = 8, min = 1, max = 32, step = 1),
+                  numericInput("dropletqcTiles", "Number of tiles:", value = 100, min = 1, max = 1000, step = 10),
+                  tags$hr(),
+
+                  # Step 4: Run NF
+                  tags$h5("Step 4: Calculate Nuclear Fraction"),
+                  actionButton(inputId = "RunDropletQCnf",
+                    label = "Calculate Nuclear Fraction",
+                    class = "btn btn-warning",
+                    icon = icon("calculator")),
+                  tags$br(), tags$br(),
+                  verbatimTextOutput("dropletqcNFstatus"),
+                  tags$hr(),
+
+                  # Step 5: Identify empty drops
+                  tags$h5("Step 5: Identify Empty Droplets"),
+                  numericInput("dropletqcNFrescue", "nf_rescue (NF threshold for rescue):", value = 0, min = 0, max = 1, step = 0.01),
+                  numericInput("dropletqcUMIrescue", "umi_rescue (UMI threshold for rescue):", value = 0, min = 0, step = 100),
+                  actionButton(inputId = "RunDropletQCempty",
+                    label = "Identify Empty Droplets",
+                    class = "btn btn-info",
+                    icon = icon("search")),
+                  tags$hr(),
+
+                  # Step 6: Identify damaged cells
+                  tags$h5("Step 6: Identify Damaged Cells"),
+                  selectInput("dropletqcCelltypeCol", "Cell type column:",
+                    choices = NULL, selected = NULL),
+                  numericInput("dropletqcNFsep", "nf_sep (NF separation threshold):", value = 0.15, min = 0, max = 1, step = 0.01),
+                  numericInput("dropletqcUMIsepPerc", "umi_sep_perc (UMI percentile):", value = 50, min = 0, max = 100, step = 5),
+                  actionButton(inputId = "RunDropletQCdamaged",
+                    label = "Identify Damaged Cells",
+                    class = "btn btn-info",
+                    icon = icon("search")),
+                  tags$hr(),
+
+                  # Filter action
+                  tags$h5("Step 7: Filter Cells"),
+                  actionButton(inputId = "DropletQCfilter",
+                    label = "Remove empty droplets & damaged cells",
+                    class = "btn btn-danger",
+                    icon = icon("filter"))
+                ),
+                box(status = "info", solidHeader = TRUE, title = "DropletQC Results", width = 8,
+                  tabsetPanel(
+                    tabPanel("NF vs UMI Plot",
+                      tags$br(),
+                      plotly::plotlyOutput("dropletqcScatter", height = "600px") %>% withSpinner()
+                    ),
+                    tabPanel("NF Distribution",
+                      tags$br(),
+                      plotOutput("dropletqcNFhist", height = "500px") %>% withSpinner()
+                    ),
+                    tabPanel("Summary",
+                      tags$br(),
+                      verbatimTextOutput("dropletqcSummary"),
+                      tags$br(),
+                      DT::dataTableOutput("dropletqcTable")
+                    )
+                  )
+                )
+              )),
+
               tabPanel("emptyDrops", fluidRow(
                 box(status = "info", solidHeader = TRUE, title = "Filter empty droplets by emptyDrops", width = 12,
                   tags$h3("emptyDrops - Filter empty droplets from raw count matrix"),

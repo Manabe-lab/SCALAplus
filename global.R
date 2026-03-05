@@ -68,6 +68,7 @@ use_condaenv("r-scvi")
 #library(JASPAR2016)
 library(sceasy)
 library(shinyFiles)
+library(DropletQC)
 
 #library(future)
 #plan("multisession", workers = 4)
