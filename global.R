@@ -21,6 +21,24 @@ library(gprofiler2)
 library(ggplot2)
 library(ggpubr)
 library(CIPR) # devtools::install_github("atakanekiz/CIPR-Package", build_vignettes = F)
+
+# Patch CIPR: replace defunct dplyr::select_() with dplyr::select()
+local({
+  cipr_body <- body(CIPR::CIPR)
+  cipr_src <- deparse(cipr_body, width.cutoff = 500)
+  cipr_src <- gsub(
+    'dplyr::select_\\(\\.dots = paste0\\("-", gene_column\\)\\)',
+    'dplyr::select(-dplyr::all_of(gene_column))',
+    cipr_src)
+  cipr_src <- gsub(
+    'dplyr::select_\\(\\.dots = paste0\\("-", ref_gene_column\\)\\)',
+    'dplyr::select(-dplyr::all_of(ref_gene_column))',
+    cipr_src)
+  patched_body <- parse(text = cipr_src)
+  patched_fn <- CIPR::CIPR
+  body(patched_fn) <- as.call(c(as.name("{"), patched_body))
+  assignInNamespace("CIPR", patched_fn, ns = "CIPR")
+})
 library(dittoSeq) # BiocManager::install("dittoSeq")
 #library(slingshot) # BiocManager::install("slingshot")
 #library(nichenetr) # devtools::install_github("saeyslab/nichenetr") # BiocManager::install("limma")
