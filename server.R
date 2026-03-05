@@ -9362,6 +9362,83 @@ withProgress(message = 'Calculation in progress', value=0.1, {
         print(paste0("Doublets: ", sum(seurat_object$classification == "Doublet")))
         print(paste0("Negatives: ", sum(seurat_object$classification == "Negative")))
 
+        # HTO UMAP for hashDemux visualization
+        tryCatch({
+          # ScaleData + PCA + UMAP on HTO assay
+          seurat_object <<- ScaleData(seurat_object, assay = assay_name, verbose = FALSE)
+          n_features <- nrow(seurat_object[[assay_name]])
+          seurat_object <<- RunPCA(seurat_object, assay = assay_name,
+            features = rownames(seurat_object[[assay_name]]),
+            npcs = n_features - 1, reduction.name = "hto_pca", verbose = FALSE)
+          seurat_object <<- RunUMAP(seurat_object,
+            dims = 1:(n_features - 1), reduction = "hto_pca",
+            reduction.name = "hto_umap", seed.use = 42, verbose = FALSE)
+
+          output$hashDemuxUMAP <- renderPlot({
+            # sampleBC で色分け（Doublet は Doublet 表記に統一）
+            plot_labels <- seurat_object$sampleBC
+            plot_labels[seurat_object$classification == "Doublet"] <- "Doublet"
+            seurat_object$hashDemux_plot_label <<- plot_labels
+            DimPlot(seurat_object, reduction = "hto_umap", group.by = "hashDemux_plot_label",
+                    label = TRUE, repel = TRUE) +
+              ggtitle("hashDemux: HTO-space UMAP") +
+              theme(plot.title = element_text(hjust = 0.5))
+          })
+        }, error = function(e) {
+          output$hashDemuxUMAP <- renderPlot({
+            plot.new(); text(0.5, 0.5, paste("UMAP plot error:", e$message))
+          })
+        })
+
+        # HTO Expression Heatmap
+        tryCatch({
+          output$hashDemuxHeatmap <- renderPlot({
+            hto_data <- GetAssayData(seurat_object, assay = assay_name, layer = "data")
+            hto_matrix <- as.matrix(hto_data)
+            # sampleBC ごとの平均発現
+            sample_labels <- seurat_object$sampleBC
+            sample_labels[seurat_object$classification == "Doublet"] <- "Doublet"
+            unique_labels <- sort(unique(sample_labels))
+            avg_expr <- sapply(unique_labels, function(lab) {
+              cells <- which(sample_labels == lab)
+              if (length(cells) > 1) rowMeans(hto_matrix[, cells, drop=FALSE])
+              else hto_matrix[, cells]
+            })
+            colnames(avg_expr) <- unique_labels
+            pheatmap::pheatmap(avg_expr, cluster_rows = FALSE, cluster_cols = FALSE,
+              main = "hashDemux: Average HTO Expression by Assignment",
+              color = colorRampPalette(c("white", "orange", "red"))(100))
+          })
+        }, error = function(e) {
+          output$hashDemuxHeatmap <- renderPlot({
+            plot.new(); text(0.5, 0.5, paste("Heatmap error:", e$message))
+          })
+        })
+
+        # Confidence Score Distribution
+        tryCatch({
+          output$hashDemuxConfidence <- renderPlot({
+            if ("confidence_score" %in% colnames(seurat_object@meta.data)) {
+              df <- data.frame(
+                confidence = seurat_object$confidence_score,
+                classification = seurat_object$classification
+              )
+              ggplot(df, aes(x = confidence, fill = classification)) +
+                geom_histogram(bins = 50, alpha = 0.7, position = "identity") +
+                scale_fill_manual(values = c("Singlet"="#2196F3", "Doublet"="#f44336", "Negative"="#9E9E9E")) +
+                theme_bw() +
+                labs(x = "Confidence Score", y = "Count",
+                     title = "hashDemux: Confidence Score Distribution")
+            } else {
+              plot.new(); text(0.5, 0.5, "Confidence score not available (single knn/resolution)")
+            }
+          })
+        }, error = function(e) {
+          output$hashDemuxConfidence <- renderPlot({
+            plot.new(); text(0.5, 0.5, paste("Confidence plot error:", e$message))
+          })
+        })
+
         # Output to UI
         output$hashDemuxText <- renderText({
           paste0("hashDemux Results:\n",
