@@ -9783,7 +9783,7 @@ withProgress(message = 'Calculation in progress', value=0.1, {
             # Create binary matrix: 1 if cell is assigned to specific tag, 0 otherwise
             # Exclude Multiplet and Negative, keep individual HTO tags
             upset_data <- as.data.frame(lapply(algorithms_available, function(x) {
-              as.integer(!(x %in% c("Multiplet", "Negative")))
+              as.integer(!(x %in% c("Multiplet", "Negative", "Non-Singlet")))
             }))
 
             upset(upset_data,
