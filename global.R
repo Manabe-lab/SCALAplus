@@ -12,12 +12,12 @@ library(Seurat)
 options(Seurat.object.assay.version = "v5")
 library(plotly)
 library(igraph)
-library(rgl)
+#library(rgl)  # Not referenced in server.R/ui.R
 library(RColorBrewer)
 library(dplyr)
-library(visNetwork)
+#library(visNetwork)  # On-demand: SNN graph only
 library(heatmaply)
-library(gprofiler2)
+#library(gprofiler2)  # On-demand: gProfiler analysis only
 library(ggplot2)
 library(ggpubr)
 library(CIPR) # devtools::install_github("atakanekiz/CIPR-Package", build_vignettes = F)
@@ -39,21 +39,21 @@ local({
   body(patched_fn) <- as.call(c(as.name("{"), patched_body))
   assignInNamespace("CIPR", patched_fn, ns = "CIPR")
 })
-library(dittoSeq) # BiocManager::install("dittoSeq")
+#library(dittoSeq)  # On-demand: trajectory/bar plots only
 #library(slingshot) # BiocManager::install("slingshot")
 #library(nichenetr) # devtools::install_github("saeyslab/nichenetr") # BiocManager::install("limma")
 library(tidyverse)
-library(destiny) #remotes::install_github("theislab/destiny")
+#library(destiny)  # On-demand: DiffusionMap only
 #library(UCell) #remotes::install_github("carmonalab/UCell")
 library(colorspace)
-library(missMDA)
-library(dismo)
+#library(missMDA)  # Not referenced in server.R/ui.R
+#library(dismo)  # On-demand: single kfold call (uses dismo::kfold)
 #library(DoubletFinder)
 #library(phateR)
 #ATAC libraries
 #library(ArchR)
 #library(pheatmap)
-library(GSEABase)
+#library(GSEABase)  # On-demand: already loaded inline in server.R
 library(stringr)
 library(readr)
 library(parallel)
@@ -66,7 +66,7 @@ use_condaenv("r-scvi")
 #library(JASPAR2020)
 #library(JASPAR2018)
 #library(JASPAR2016)
-library(sceasy)
+#library(sceasy)  # On-demand: single convertFormat call
 library(shinyFiles)
 library(DropletQC)
 

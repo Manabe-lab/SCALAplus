@@ -6229,6 +6229,7 @@ subset_seurat <- seurat_object[[DefaultAssay(seurat_object)]]$counts[var_genes,]
 subset_seurat <- CreateSeuratObject(counts =  seurat_object[[DefaultAssay(seurat_object)]]$counts[var_genes,],  min.cells = 0, min.features = 0)
 
 
+library(sceasy)
 adata <- convertFormat(subset_seurat, from="seurat", to="anndata", main_layer="counts", drop_single_values=FALSE)
 
   # CSR最適化（オプション）
@@ -13399,7 +13400,7 @@ actual_dims <- min(as.numeric(snn_dims), max_dims)
           clusterTable <- as.data.frame.matrix(table(seurat_object[[]][c('seurat_clusters',input$clusterGroupBy)]), )
           rownames(clusterTable) <- levels(seurat_object@meta.data$seurat_clusters)
 
-
+          library(dittoSeq)
           p <- dittoBarPlot(seurat_object, var = "seurat_clusters",group.by = input$clusterGroupBy, scale = "percent", retain.factor.levels=TRUE) +
             theme_classic() +
             scale_fill_manual(values = cols ) +
@@ -13658,6 +13659,7 @@ seurat_object[[input$AassayDelete]] <<- NULL
         session$sendCustomMessage("handler_startLoader", c("clust3_loader", 20))
         session$sendCustomMessage("handler_startLoader", c("clust3_loader", 50))
         session$sendCustomMessage("handler_startLoader", c("clust3_loader", 70))
+        library(visNetwork)
         output$snnSNN <- renderVisNetwork(
           {
             if(!is.null(seurat_object@graphs$RNA_snn))
@@ -14155,6 +14157,7 @@ seurat_object[[input$AassayDelete]] <<- NULL
 
         #run DFM default
  #       dfm <- DiffusionMap(dfm_in, n_eigs = as.numeric(input$umapOutComponents))
+        library(destiny)
         dfm <- DiffusionMap(dfm_in, n_eigs = input$umapOutComponents)
         dfm_out <- dfm@eigenvectors
         colnames(dfm_out) <- gsub("DC", "DC_", colnames(dfm_out))
@@ -19243,6 +19246,7 @@ observeEvent(input$doubletsATACConfirm, {
 
           names(gene_lists) <- cluster_temp
 
+          library(gprofiler2)
           gostres <- gost(query = gene_lists,
                           organism = input$gProfilerOrganism, ordered_query = FALSE,
                           multi_query = F, significant = TRUE, exclude_iea = F,
@@ -19978,6 +19982,7 @@ output$findMotifsATACExport <- downloadHandler(
         session$sendCustomMessage("handler_startLoader", c("traj1_loader", 50))
         session$sendCustomMessage("handler_startLoader", c("traj2_loader", 50))
 
+        library(dittoSeq)
         plot_D <- dittoDimPlot(seurat_object, "seurat_clusters",
                                dim.1 = input$slingX, dim.2 = input$slingY,
                                do.label = TRUE,
