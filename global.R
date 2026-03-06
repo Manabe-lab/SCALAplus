@@ -21,8 +21,6 @@ library(gprofiler2)
 library(ggplot2)
 library(ggpubr)
 library(CIPR) # devtools::install_github("atakanekiz/CIPR-Package", build_vignettes = F)
-library(SeuratWrappers)
-library(batchelor)
 
 # Patch CIPR: replace defunct dplyr::select_() with dplyr::select()
 local({
