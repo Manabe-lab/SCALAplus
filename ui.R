@@ -1322,6 +1322,8 @@ tags$h5('https://genomebiology.biomedcentral.com/articles/10.1186/s13059-019-185
                             textOutput(outputId = "deMULTIplex2Text"),
                             plotOutput(outputId = "deMULTIplex2_tagHist", height="600px"),
                             plotOutput(outputId = "deMULTIplex2_heatmap", height="600px"),
+                            plotOutput(outputId = "deMULTIplex2_posterior", height = "500px"),
+                            plotOutput(outputId = "deMULTIplex2_umapPosterior", height = "600px"),
                             hr(),
                             h4("Algorithm Comparison Visualizations"),
                             tags$p("Compare results across multiple demultiplexing algorithms (shown only if 2+ algorithms were run):"),

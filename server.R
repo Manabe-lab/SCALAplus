@@ -9490,7 +9490,7 @@ withProgress(message = 'Calculation in progress', value=0.1, {
         # Run deMULTIplex2
         print("deMULTIplex2: Running demultiplexTags...")
         demux2_res <- demultiplexTags(tag_mtx,
-                                      plot.umap = "none",  # Don't generate UMAP plots
+                                      plot.umap = "residual",  # Generate UMAP for diagnostic plots
                                       plot.diagnostics = FALSE)
         print("deMULTIplex2: demultiplexTags complete")
 
@@ -9554,6 +9554,61 @@ withProgress(message = 'Calculation in progress', value=0.1, {
           }, error = function(e) {
             plot.new()
             text(0.5, 0.5, paste("Heatmap plot error:", e$message))
+          })
+        })
+
+        # Diagnostic: Per-tag posterior probability distribution
+        tryCatch({
+          output$deMULTIplex2_posterior <- renderPlot({
+            prob_mtx <- demux2_res$prob_mtx
+            tag_names <- colnames(prob_mtx)
+            df_post <- data.frame(
+              probability = as.vector(prob_mtx),
+              tag = rep(tag_names, each = nrow(prob_mtx))
+            )
+            ggplot(df_post, aes(x = probability)) +
+              geom_histogram(bins = 50, fill = "#2196F3", alpha = 0.7, color = "white") +
+              geom_vline(xintercept = 0.5, color = "red", linetype = "dashed", linewidth = 0.8) +
+              facet_wrap(~ tag, scales = "free_y") +
+              theme_bw() +
+              labs(x = "Posterior Probability", y = "Count",
+                   title = "deMULTIplex2: Per-tag Posterior Probability Distribution",
+                   subtitle = "Red line = 0.5 threshold. Peaks near 0.5 indicate uncertain classification")
+          })
+        }, error = function(e) {
+          output$deMULTIplex2_posterior <- renderPlot({
+            plot.new(); text(0.5, 0.5, paste("Posterior plot error:", e$message))
+          })
+        })
+
+        # Diagnostic: Per-tag UMAP colored by posterior probability
+        tryCatch({
+          output$deMULTIplex2_umapPosterior <- renderPlot({
+            umap_coords <- demux2_res$umap
+            prob_mtx <- demux2_res$prob_mtx
+            tag_names <- colnames(prob_mtx)
+            df_umap <- do.call(rbind, lapply(tag_names, function(tag) {
+              data.frame(
+                UMAP_1 = umap_coords[, 1],
+                UMAP_2 = umap_coords[, 2],
+                posterior = prob_mtx[, tag],
+                tag = tag
+              )
+            }))
+            ggplot(df_umap, aes(x = UMAP_1, y = UMAP_2, color = posterior)) +
+              geom_point(size = 0.3, alpha = 0.6) +
+              scale_color_gradientn(colors = c("grey90", "blue", "green", "red"),
+                                    values = c(0, 0.3, 0.6, 1),
+                                    name = "Posterior") +
+              facet_wrap(~ tag) +
+              theme_bw() +
+              theme(aspect.ratio = 1) +
+              labs(title = "deMULTIplex2: Per-tag UMAP by Posterior Probability",
+                   subtitle = "Scattered high-posterior cells suggest background contamination")
+          })
+        }, error = function(e) {
+          output$deMULTIplex2_umapPosterior <- renderPlot({
+            plot.new(); text(0.5, 0.5, paste("UMAP posterior plot error:", e$message))
           })
         })
 
