@@ -5165,11 +5165,18 @@ if (input$SCTfastMNN){
     # Deafult assayの警告
 
     print('AAA')
-    if (!is.null(reduc_temp)) (
-      for (i in names(reduc_temp)){
-          seurat_temp@reductions[i] <-reduc_temp[i]
+    if (!is.null(reduc_temp)) {
+      # Restore old reductions, but skip newly computed ones (e.g., RNA.mnn, RNA.mnn.umap)
+      new_reduc_names <- names(seurat_temp@reductions)
+      for (i in names(reduc_temp)) {
+        if (!(i %in% new_reduc_names)) {
+          seurat_temp@reductions[i] <- reduc_temp[i]
+          print(paste("Restored old reduction:", i))
+        } else {
+          print(paste("Skipped restoring (newly computed):", i))
         }
-      )
+      }
+    }
 
     if (input$SCTfastMNN){
     showNotification("Clusterの再解析ではDeafult AssayをSCTに遺伝子発現解析ではRNAに設定のこと。", type='error', duration = 120)
