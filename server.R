@@ -9788,6 +9788,9 @@ withProgress(message = 'Calculation in progress', value=0.1, {
 
             upset(upset_data,
                   sets = names(algorithms_available),
+                  nsets = length(algorithms_available),
+                  nintersects = NA,
+                  empty.intersections = "on",
                   order.by = "freq",
                   text.scale = c(1.3, 1.3, 1, 1, 1.5, 1.2),
                   mainbar.y.label = "Number of Cells with Agreement",
