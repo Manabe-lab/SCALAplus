@@ -9679,18 +9679,16 @@ withProgress(message = 'Calculation in progress', value=0.1, {
       }
 
       # Collect available algorithm results (detailed classification with HTO tags)
-      # Only include algorithms that were SELECTED in this run AND have metadata columns
       algorithms_available <- list()
 
       # Determine hashDemux singlets (if hashDemux was run)
       hashDemux_singlets <- NULL
-      if (input$run_hashDemux && "classification" %in% colnames(seurat_object@meta.data)) {
+      if ("classification" %in% colnames(seurat_object@meta.data)) {
         hashDemux_singlets <- (seurat_object$classification == "Singlet")
         cat(paste("Using hashDemux singlet determination:", sum(hashDemux_singlets, na.rm=TRUE), "singlets out of", length(hashDemux_singlets), "cells\n"))
       }
 
-      if (input$run_HTODemux &&
-          "HTO_classification.global" %in% colnames(seurat_object@meta.data) &&
+      if ("HTO_classification.global" %in% colnames(seurat_object@meta.data) &&
           "HTO_maxID" %in% colnames(seurat_object@meta.data)) {
         algorithms_available$HTODemux <- get_detailed_classification(
           seurat_object$HTO_classification.global,
@@ -9698,24 +9696,21 @@ withProgress(message = 'Calculation in progress', value=0.1, {
           "HTODemux",
           hashDemux_singlets)
       }
-      if (input$run_MULTIseqDemux &&
-          "MULTI_classification" %in% colnames(seurat_object@meta.data)) {
+      if ("MULTI_classification" %in% colnames(seurat_object@meta.data)) {
         algorithms_available$MULTIseqDemux <- get_detailed_classification(
           seurat_object$MULTI_classification,
           seurat_object$MULTI_classification,
           "MULTIseqDemux",
           hashDemux_singlets)
       }
-      if (input$run_demuxmix &&
-          "demuxmix_hash_re" %in% colnames(seurat_object@meta.data)) {
+      if ("demuxmix_hash_re" %in% colnames(seurat_object@meta.data)) {
         algorithms_available$demuxmix <- get_detailed_classification(
           seurat_object$demuxmix_hash_re,
           seurat_object$demuxmix_hash_re,
           "demuxmix",
           hashDemux_singlets)
       }
-      if (input$run_hashDemux &&
-          "classification" %in% colnames(seurat_object@meta.data) &&
+      if ("classification" %in% colnames(seurat_object@meta.data) &&
           "sampleBC" %in% colnames(seurat_object@meta.data)) {
         algorithms_available$hashDemux <- get_detailed_classification(
           seurat_object$classification,
@@ -9723,8 +9718,7 @@ withProgress(message = 'Calculation in progress', value=0.1, {
           "hashDemux",
           NULL)  # hashDemux doesn't filter itself
       }
-      if (input$run_deMULTIplex2 &&
-          "deMULTIplex2_assign" %in% colnames(seurat_object@meta.data)) {
+      if ("deMULTIplex2_assign" %in% colnames(seurat_object@meta.data)) {
         algorithms_available$deMULTIplex2 <- get_detailed_classification(
           seurat_object$deMULTIplex2_assign,
           seurat_object$deMULTIplex2_assign,
