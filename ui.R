@@ -1265,10 +1265,10 @@ tags$h5('https://genomebiology.biomedcentral.com/articles/10.1186/s13059-019-185
                            "複数手法の併用目的：discordant cells（手法間で不一致の細胞）をフラグ付けし、",
                            "保留・除外・感度分析の対象とすること。自動的に精度が上がるわけではない。")
                   ),
-                  checkboxInput(inputId = "run_deMULTIplex2", label = "deMULTIplex2 (EM-GLM) - sensitivity / 回収重視", value = TRUE),
                   checkboxInput(inputId = "run_demuxmix", label = "demuxmix (mixture model) - primary候補", value = TRUE),
-                  checkboxInput(inputId = "run_MULTIseqDemux", label = "MULTIseqDemux (Seurat) - baseline", value = TRUE),
-                  checkboxInput(inputId = "run_hashDemux", label = "hashDemux (clustering-based) - primary候補", value = FALSE),
+                  checkboxInput(inputId = "run_hashDemux", label = "hashDemux (clustering-based) - primary候補", value = TRUE),
+                  checkboxInput(inputId = "run_deMULTIplex2", label = "deMULTIplex2 (EM-GLM) - sensitivity / 回収重視", value = FALSE),
+                  checkboxInput(inputId = "run_MULTIseqDemux", label = "MULTIseqDemux (Seurat) - baseline", value = FALSE),
                   checkboxInput(inputId = "run_HTODemux", label = "HTODemux (Seurat) - baseline", value = FALSE),
                   tags$hr(),
                   tags$h4("Algorithm Details and Output Columns"),
