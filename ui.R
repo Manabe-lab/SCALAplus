@@ -1978,12 +1978,16 @@ tabsetPanel(
                     choices = NULL, selected = NULL),
                   tags$hr(),
 
-                  # Step 1: BAM File
-                  tags$h5("Step 1: Select BAM File"),
+                  # Step 1: BAM File(s)
+                  tags$h5("Step 1: Select BAM File(s)"),
+                  tags$p(style="color: #666; font-size: 0.85em;",
+                    "Single BAM: possorted_genome_bam.bam (cellranger count output, all cells).",
+                    tags$br(),
+                    "Multiple BAMs: sample_alignments.bam (cellranger multi per-sample outputs)."),
                   shinyFilesButton(id = "dropletqcBAMfile",
-                    label = "Select BAM file",
-                    title = "Select BAM file from Cell Ranger output",
-                    multiple = FALSE,
+                    label = "Select BAM file(s)",
+                    title = "Select BAM file(s)",
+                    multiple = TRUE,
                     class = "btn btn-default"),
                   tags$br(), tags$br(),
                   verbatimTextOutput("dropletqcBAMpath"),

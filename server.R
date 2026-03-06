@@ -28255,7 +28255,11 @@ pca_select <- pca_match[length(pca_match)]
   output$dropletqcBAMpath <- renderText({
     if (!is.null(input$dropletqcBAMfile) && !is.integer(input$dropletqcBAMfile)) {
       bam_file_info <- parseFilePaths(volumes, input$dropletqcBAMfile)
-      return(as.character(bam_file_info$datapath))
+      if (nrow(bam_file_info) > 0) {
+        paths <- as.character(bam_file_info$datapath)
+        return(paste0("Selected ", length(paths), " file(s):\n",
+                       paste(paths, collapse = "\n")))
+      }
     }
     "No file selected"
   })
@@ -28304,15 +28308,23 @@ pca_select <- pca_match[length(pca_match)]
 
     # Validate BAM file selection
     if (is.null(input$dropletqcBAMfile) || is.integer(input$dropletqcBAMfile)) {
-      showNotification("Please select a BAM file first.", type = "error", duration = 5)
+      showNotification("Please select BAM file(s) first.", type = "error", duration = 5)
       return()
     }
 
     bam_info <- parseFilePaths(volumes, input$dropletqcBAMfile)
-    bam_path <- as.character(bam_info$datapath)
+    bam_paths <- as.character(bam_info$datapath)
 
-    if (!file.exists(bam_path)) {
-      showNotification(paste("BAM file not found:", bam_path), type = "error", duration = 5)
+    if (length(bam_paths) == 0) {
+      showNotification("No BAM files selected.", type = "error", duration = 5)
+      return()
+    }
+
+    # Validate all BAM files exist
+    missing <- bam_paths[!file.exists(bam_paths)]
+    if (length(missing) > 0) {
+      showNotification(paste("BAM file(s) not found:", paste(missing, collapse = ", ")),
+                       type = "error", duration = 5)
       return()
     }
 
@@ -28334,51 +28346,89 @@ pca_select <- pca_match[length(pca_match)]
     barcode_tmp <- tempfile(fileext = ".tsv")
     writeLines(barcodes, barcode_tmp)
 
+    # Resolve GTF path (needed for annotation method, resolve once before loop)
+    gtf_file <- NULL
+    if (input$dropletqcMethod != "tags") {
+      gtf_base <- "./GTF"
+      if (input$dropletqcGTFsource == "custom") {
+        if (is.null(input$dropletqcGTFfile) || is.integer(input$dropletqcGTFfile)) {
+          showNotification("Please select a custom GTF file.", type = "error", duration = 5)
+          unlink(barcode_tmp)
+          return()
+        }
+        gtf_info <- parseFilePaths(volumes, input$dropletqcGTFfile)
+        gtf_file <- as.character(gtf_info$datapath)
+      } else {
+        gtf_file <- switch(input$dropletqcGTFsource,
+          "GRCh38-2024" = file.path(gtf_base, "refdata-gex-GRCh38-2024-A/genes/genes.gtf.gz"),
+          "GRCh38-2020" = file.path(gtf_base, "refdata-gex-GRCh38-2020-A/genes/genes.gtf"),
+          "GRCm39-2024" = file.path(gtf_base, "refdata-gex-GRCm39-2024-A/genes/genes.gtf.gz"),
+          "mm10-2020"   = file.path(gtf_base, "mm10-2020A/genes/genes.gtf"),
+          NULL
+        )
+      }
+      if (is.null(gtf_file) || !file.exists(gtf_file)) {
+        showNotification("GTF file not found. Check your selection.", type = "error", duration = 5)
+        unlink(barcode_tmp)
+        return()
+      }
+    }
+
+    # Helper function to run NF on a single BAM
+    run_nf_single <- function(bam_path, barcode_file, method, gtf, cores, tiles) {
+      if (method == "tags") {
+        DropletQC::nuclear_fraction_tags(
+          bam = bam_path,
+          barcodes = barcode_file,
+          cores = cores,
+          tiles = tiles,
+          verbose = TRUE
+        )
+      } else {
+        DropletQC::nuclear_fraction_annotation(
+          annotation_path = gtf,
+          bam = bam_path,
+          barcodes = barcode_file,
+          cores = cores,
+          tiles = tiles,
+          verbose = TRUE
+        )
+      }
+    }
+
     withProgress(message = "Calculating nuclear fraction...", value = 0, {
       tryCatch({
-        if (input$dropletqcMethod == "tags") {
-          incProgress(0.1, detail = "Using RE tags method")
-          nf <- DropletQC::nuclear_fraction_tags(
-            bam = bam_path,
-            barcodes = barcode_tmp,
-            cores = input$dropletqcCores,
-            tiles = input$dropletqcTiles,
-            verbose = TRUE
-          )
+        if (length(bam_paths) == 1) {
+          # Single BAM: original logic
+          incProgress(0.1, detail = paste("Processing:", basename(bam_paths[1])))
+          nf <- run_nf_single(bam_paths[1], barcode_tmp, input$dropletqcMethod,
+                              gtf_file, input$dropletqcCores, input$dropletqcTiles)
         } else {
-          # Resolve GTF path
-          gtf_base <- "./GTF"
-          if (input$dropletqcGTFsource == "custom") {
-            if (is.null(input$dropletqcGTFfile) || is.integer(input$dropletqcGTFfile)) {
-              showNotification("Please select a custom GTF file.", type = "error", duration = 5)
-              return()
-            }
-            gtf_info <- parseFilePaths(volumes, input$dropletqcGTFfile)
-            gtf_file <- as.character(gtf_info$datapath)
-          } else {
-            gtf_file <- switch(input$dropletqcGTFsource,
-              "GRCh38-2024" = file.path(gtf_base, "refdata-gex-GRCh38-2024-A/genes/genes.gtf.gz"),
-              "GRCh38-2020" = file.path(gtf_base, "refdata-gex-GRCh38-2020-A/genes/genes.gtf"),
-              "GRCm39-2024" = file.path(gtf_base, "refdata-gex-GRCm39-2024-A/genes/genes.gtf.gz"),
-              "mm10-2020"   = file.path(gtf_base, "mm10-2020A/genes/genes.gtf"),
-              NULL
+          # Multiple BAMs: process each and merge results
+          nf_list <- list()
+          for (i in seq_along(bam_paths)) {
+            incProgress(0.1 * i / length(bam_paths),
+                        detail = paste0("Processing BAM ", i, "/", length(bam_paths),
+                                        ": ", basename(bam_paths[i])))
+            nf_i <- tryCatch(
+              run_nf_single(bam_paths[i], barcode_tmp, input$dropletqcMethod,
+                            gtf_file, input$dropletqcCores, input$dropletqcTiles),
+              error = function(e) {
+                showNotification(paste("BAM error (", basename(bam_paths[i]), "):", e$message),
+                                 type = "warning", duration = 10)
+                NULL
+              }
             )
+            if (!is.null(nf_i) && nrow(nf_i) > 0) {
+              nf_list[[length(nf_list) + 1]] <- nf_i
+            }
           }
-
-          if (is.null(gtf_file) || !file.exists(gtf_file)) {
-            showNotification("GTF file not found. Check your selection.", type = "error", duration = 5)
-            return()
+          if (length(nf_list) == 0) {
+            stop("No results from any BAM file.")
           }
-
-          incProgress(0.1, detail = "Using GTF annotation method")
-          nf <- DropletQC::nuclear_fraction_annotation(
-            annotation_path = gtf_file,
-            bam = bam_path,
-            barcodes = barcode_tmp,
-            cores = input$dropletqcCores,
-            tiles = input$dropletqcTiles,
-            verbose = TRUE
-          )
+          # Merge: combine and deduplicate by barcode (first result takes priority)
+          nf <- do.call(rbind, nf_list)
+          nf <- nf[!duplicated(rownames(nf)), , drop = FALSE]
         }
 
         incProgress(0.8, detail = "Updating Seurat object")
@@ -28386,13 +28436,20 @@ pca_select <- pca_match[length(pca_match)]
         # Map NF values back to Seurat object
         # nf$nuclear_fraction is named by barcode (without suffix)
         nf_values <- nf$nuclear_fraction
-        names(nf_values) <- barcodes
+        names(nf_values) <- barcodes[seq_len(length(nf_values))]
+
+        # Match barcodes: NF result rownames ↔ stripped barcodes
+        nf_barcodes <- rownames(nf)
+        matched_idx <- match(barcodes, nf_barcodes)
+        matched_nf <- nf$nuclear_fraction[matched_idx]  # NA for unmatched
 
         # Write NF to metadata for the processed cells
         if (!"nuclear_fraction" %in% colnames(seurat_object@meta.data)) {
           seurat_object$nuclear_fraction <<- NA_real_
         }
-        seurat_object@meta.data[sample_cells, "nuclear_fraction"] <<- nf_values
+        seurat_object@meta.data[sample_cells, "nuclear_fraction"] <<- matched_nf
+
+        n_matched <- sum(!is.na(matched_nf))
 
         # Build NF + UMI data frame for all cells that have NF values
         cells_with_nf <- colnames(seurat_object)[!is.na(seurat_object$nuclear_fraction)]
@@ -28405,7 +28462,8 @@ pca_select <- pca_match[length(pca_match)]
 
         incProgress(1, detail = "Done!")
         showNotification(
-          paste("Nuclear fraction calculated for", length(sample_cells), "cells."),
+          paste0("Nuclear fraction calculated: ", n_matched, "/", length(sample_cells),
+                 " cells matched (from ", length(bam_paths), " BAM file(s))."),
           type = "message", duration = 10
         )
 
