@@ -9376,7 +9376,7 @@ withProgress(message = 'Calculation in progress', value=0.1, {
 
           output$hashDemuxUMAP <- renderPlot({
             # sampleBC で色分け（Doublet は Doublet 表記に統一）
-            plot_labels <- seurat_object$sampleBC
+            plot_labels <- as.character(seurat_object$sampleBC)
             plot_labels[seurat_object$classification == "Doublet"] <- "Doublet"
             seurat_object$hashDemux_plot_label <<- plot_labels
             DimPlot(seurat_object, reduction = "hto_umap", group.by = "hashDemux_plot_label",
@@ -9396,7 +9396,7 @@ withProgress(message = 'Calculation in progress', value=0.1, {
             hto_data <- GetAssayData(seurat_object, assay = assay_name, layer = "data")
             hto_matrix <- as.matrix(hto_data)
             # sampleBC ごとの平均発現
-            sample_labels <- seurat_object$sampleBC
+            sample_labels <- as.character(seurat_object$sampleBC)
             sample_labels[seurat_object$classification == "Doublet"] <- "Doublet"
             unique_labels <- sort(unique(sample_labels))
             avg_expr <- sapply(unique_labels, function(lab) {
@@ -9420,8 +9420,8 @@ withProgress(message = 'Calculation in progress', value=0.1, {
           output$hashDemuxConfidence <- renderPlot({
             if ("confidence_score" %in% colnames(seurat_object@meta.data)) {
               df <- data.frame(
-                confidence = seurat_object$confidence_score,
-                classification = seurat_object$classification
+                confidence = as.numeric(as.character(seurat_object$confidence_score)),
+                classification = as.character(seurat_object$classification)
               )
               ggplot(df, aes(x = confidence, fill = classification)) +
                 geom_histogram(bins = 50, alpha = 0.7, position = "identity") +
