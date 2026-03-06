@@ -4948,8 +4948,9 @@ meta_data <-  names(seurat_object@meta.data)
         }
         showModal(modalDialog(div('Analysis in Progress. This operation may take several minutes, please wait...', style='color:#ffffff; background-color:#222d32;'), footer = NULL, style = 'font-size:20px; text-align:center;position:absolute;')) #position:absolute;top:50%;left:50%
         session$sendCustomMessage("handler_startLoader", c("input_loader", 20))
-        library(SeuratWrappers)
-        library(batchelor)
+        # SeuratWrappers/batchelor are pre-loaded in global.R
+        requireNamespace("SeuratWrappers", quietly = TRUE)
+        requireNamespace("batchelor", quietly = TRUE)
   reduc_data <- NULL
     reduc_temp <- NULL
 
@@ -5542,8 +5543,9 @@ print("###############################################")
         }
         showModal(modalDialog(div('Analysis in Progress. This operation may take several minutes, please wait...', style='color:#ffffff; background-color:#222d32;'), footer = NULL, style = 'font-size:20px; text-align:center;position:absolute;')) #position:absolute;top:50%;left:50%
         session$sendCustomMessage("handler_startLoader", c("input_loader", 20))
-        library(SeuratWrappers)
-        library(batchelor)
+        # SeuratWrappers/batchelor are pre-loaded in global.R
+        requireNamespace("SeuratWrappers", quietly = TRUE)
+        requireNamespace("batchelor", quietly = TRUE)
 
 if ( harmonyintegration) {
   alg <- 'harmony' # algで名前を入れる
@@ -6175,8 +6177,9 @@ observeEvent(input$scVIintegration, {
         }
         showModal(modalDialog(div('Analysis in Progress. This operation may take several minutes, please wait...', style='color:#ffffff; background-color:#222d32;'), footer = NULL, style = 'font-size:20px; text-align:center;position:absolute;')) #position:absolute;top:50%;left:50%
         session$sendCustomMessage("handler_startLoader", c("input_loader", 20))
-        library(SeuratWrappers)
-        library(batchelor)
+        # SeuratWrappers/batchelor are pre-loaded in global.R
+        requireNamespace("SeuratWrappers", quietly = TRUE)
+        requireNamespace("batchelor", quietly = TRUE)
 #  reduc_data <- NULL
 #  reduc_temp <- NULL
 #    if (input$KeepReduct) {
