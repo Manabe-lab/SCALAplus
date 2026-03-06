@@ -15,7 +15,7 @@ library(igraph)
 #library(rgl)  # Not referenced in server.R/ui.R
 library(RColorBrewer)
 library(dplyr)
-#library(visNetwork)  # On-demand: SNN graph only
+library(visNetwork)  # Required at startup: visNetworkOutput() used in ui.R
 library(heatmaply)
 #library(gprofiler2)  # On-demand: gProfiler analysis only
 library(ggplot2)
