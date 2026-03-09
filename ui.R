@@ -1591,6 +1591,16 @@ tags$h5('https://genomebiology.biomedcentral.com/articles/10.1186/s13059-019-185
                   tags$h5("順番通りオプション：細胞名を無視して行番号順にメタデータを追加します。細胞数が異なる場合はエラーになります。"),
 
                   tags$hr(),
+                  tags$h3("Load cellranger annotate results"),
+                  tags$h5("cellranger annotate の cell_types.csv をサーバー上から選択してメタデータに追加します。"),
+                  shinyFilesButton("cellrangerAnnotateFile", "Select cell_types.csv",
+                                   title = "Select cell_types.csv", multiple = FALSE),
+                  verbatimTextOutput("cellrangerAnnotateFilePath"),
+                  actionButton(inputId = "loadCellrangerAnnotate",
+                               label = "Load and add to metadata",
+                               class = "btn btn-success"),
+
+                  tags$hr(),
                   tags$h3("Convert metadata to reduction"),
                   tags$h5("Select metadata columns to use as reduction coordinates. The common prefix of selected columns will be used as the reduction key and name."),
                   tags$h5("Example: Selecting 'tsne_1' and 'tsne_2' will create a reduction named 'tsne' with key 'tsne_'."),

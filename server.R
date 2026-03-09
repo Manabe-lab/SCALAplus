@@ -124,6 +124,7 @@ options(RCurlOptions = list(timeout = 0,
   shinyFileChoose(input, 'downloadlocaFile', roots = volumes,  session = session)
   shinyDirChoose(input, 'downloadlocaFolder', roots = volumes, session = session)
   shinyFileChoose(input, 'localscenicMatrix', roots = volumes, filetypes=c('csv', 'tsv', 'txt'), session = session)
+  shinyFileChoose(input, 'cellrangerAnnotateFile', roots = volumes, filetypes=c('csv', 'CSV'), session = session)
   shinyDirChoose(input, 'SpatialFolder', roots = volumes, session = session)
 
   # CellBender file selection
@@ -10031,6 +10032,141 @@ read_meta_file <- function(file_info) {
     })
   }
 }
+
+## cellranger annotate file path display
+output$cellrangerAnnotateFilePath <- renderPrint({
+  if (is.integer(input$cellrangerAnnotateFile)) {
+    cat("No file selected")
+  } else {
+    file_selected <- parseFilePaths(volumes, input$cellrangerAnnotateFile)
+    cat(as.character(file_selected$datapath))
+  }
+})
+
+## Load cellranger annotate results
+observeEvent(input$loadCellrangerAnnotate, {
+  tryCatch({
+    if (is.integer(input$cellrangerAnnotateFile)) {
+      showNotification("Please select a cell_types.csv file first", type = "error")
+      return()
+    }
+
+    showModal(modalDialog(
+      div('Loading cellranger annotate results...',
+          style='color:#ffffff; background-color:#222d32;'),
+      footer = NULL))
+
+    file_selected <- parseFilePaths(volumes, input$cellrangerAnnotateFile)
+    file_path <- as.character(file_selected$datapath)
+
+    # cell_types.csv を読み込み (barcode が named column)
+    meta <- read.csv(file_path, stringsAsFactors = FALSE)
+
+    # barcode 列をチェック
+    if (!"barcode" %in% colnames(meta)) {
+      removeModal()
+      showNotification("barcode column not found in file", type = "error")
+      return()
+    }
+
+    # barcode を rownames に設定
+    rownames(meta) <- meta$barcode
+    meta$barcode <- NULL
+    # umi_count は既存の nCount_RNA と重複するので除外
+    meta$umi_count <- NULL
+
+    # 既存メタデータ
+    meta_org <- seurat_object[[]]
+    meta_org['meta_org.row.names'] <- row.names(meta_org)
+
+    # barcode マッチング
+    current_cells <- rownames(meta_org)
+    meta_cells <- rownames(meta)
+
+    # 1. exact match
+    exact_matched <- sum(meta_cells %in% current_cells)
+    exact_match_ratio <- exact_matched / length(meta_cells)
+
+    if (exact_match_ratio >= 0.5) {
+      showNotification(
+        paste("Exact match:", exact_matched, "/", length(meta_cells), "cells"),
+        type = "message", duration = 5)
+    } else {
+      # 2. barcode extraction fallback
+      extract_barcode <- function(cell_names) {
+        barcodes <- sub("^.*_", "", cell_names)
+        barcodes <- gsub("-[0-9]+$", "", barcodes)
+        return(barcodes)
+      }
+      current_barcodes <- extract_barcode(current_cells)
+      meta_barcodes <- extract_barcode(meta_cells)
+
+      barcode_to_current <- setNames(current_cells, current_barcodes)
+      matched_barcodes <- meta_barcodes[meta_barcodes %in% current_barcodes]
+
+      if (length(matched_barcodes) == 0) {
+        removeModal()
+        showNotification("No matching barcodes found", type = "error")
+        return()
+      }
+
+      # meta の rownames を current_cells に合わせる
+      new_rownames <- barcode_to_current[meta_barcodes]
+      valid <- !is.na(new_rownames)
+      meta <- meta[valid, , drop = FALSE]
+      rownames(meta) <- new_rownames[valid]
+
+      showNotification(
+        paste("Barcode match:", sum(valid), "/", length(meta_barcodes), "cells"),
+        type = "message", duration = 5)
+    }
+
+    # 新規カラムのみ追加
+    new_columns <- setdiff(colnames(meta), colnames(meta_org))
+    if (length(new_columns) == 0) {
+      removeModal()
+      showNotification("No new columns to add (all columns already exist)", type = "warning")
+      return()
+    }
+
+    meta <- meta[new_columns]
+    meta['meta.row.names'] <- row.names(meta)
+
+    # merge
+    meta_new <- merge(meta_org, meta,
+                      by.x = 'meta_org.row.names', by.y = 'meta.row.names',
+                      all.x = TRUE)
+    rownames(meta_new) <- meta_new$meta_org.row.names
+    meta_new$meta_org.row.names <- NULL
+    meta_new <- meta_new[row.names(meta_org), ]
+
+    # cell type カラムは factor に変換
+    for (col in new_columns) {
+      if (col %in% colnames(meta_new)) {
+        vals <- meta_new[[col]]
+        if (is.character(vals)) {
+          meta_new[[col]] <- as.factor(vals)
+        } else if (is.numeric(vals)) {
+          meta_new[[col]] <- as.numeric(vals)
+        }
+      }
+    }
+
+    # Seurat に適用
+    seurat_object[[]] <<- meta_new
+    updateMetadata()
+    updateSelInpColor()
+
+    removeModal()
+    showNotification(
+      paste("Added", length(new_columns), "columns:", paste(new_columns, collapse = ", ")),
+      type = "message", duration = 10)
+
+  }, error = function(e) {
+    removeModal()
+    showNotification(paste("Error:", e$message), type = "error", duration = 10)
+  })
+})
 
 observeEvent(input$uploadMeta, {
   tryCatch({
