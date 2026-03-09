@@ -5930,11 +5930,18 @@ if (input$SCTfastMNN){
 
 } # scanoramaの終わり
 
-    if (!is.null(reduc_temp)) (
-      for (i in names(reduc_temp)){
-          seurat_temp@reductions[i] <-reduc_temp[i]
+    if (!is.null(reduc_temp)) {
+      # Restore old reductions, but skip newly computed ones
+      new_reduc_names <- names(seurat_temp@reductions)
+      for (i in names(reduc_temp)) {
+        if (!(i %in% new_reduc_names)) {
+          seurat_temp@reductions[i] <- reduc_temp[i]
+          print(paste("Restored old reduction:", i))
+        } else {
+          print(paste("Skipped restoring (newly computed):", i))
         }
-      )
+      }
+    }
 
     seurat_object <<- NULL
     seurat_object <<- seurat_temp
@@ -6958,11 +6965,18 @@ all.genes <- rownames(seurat_object)
     ReductionUse <<-  "seurat.pca"
     updateUmapTypeChoices('seurat.umap')
 
-    if (!is.null(reduc_temp)) (
-      for (i in names(reduc_temp)){
-          seurat_object@reductions[i] <<-reduc_temp[i]
+    if (!is.null(reduc_temp)) {
+      # Restore old reductions, but skip newly computed ones
+      new_reduc_names <- names(seurat_object@reductions)
+      for (i in names(reduc_temp)) {
+        if (!(i %in% new_reduc_names)) {
+          seurat_object@reductions[i] <<- reduc_temp[i]
+          print(paste("Restored old reduction:", i))
+        } else {
+          print(paste("Skipped restoring (newly computed):", i))
         }
-      )
+      }
+    }
 
 	#	DefaultAssay(seurat_object) <<- "RNA"
 
