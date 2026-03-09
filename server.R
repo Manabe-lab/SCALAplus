@@ -3,6 +3,19 @@ credentials <- data.frame(
   password = c("inflammation")
 )
 
+# Sort numeric-looking factor levels in cluster columns numerically
+# e.g., "1","10","11","2" -> "1","2","3",...,"10","11"
+sort_cluster_levels <- function(obj, col_name) {
+  if (col_name %in% colnames(obj@meta.data) && is.factor(obj@meta.data[[col_name]])) {
+    lvls <- levels(obj@meta.data[[col_name]])
+    nums <- suppressWarnings(as.numeric(lvls))
+    if (all(!is.na(nums))) {
+      obj@meta.data[[col_name]] <- factor(obj@meta.data[[col_name]], levels = lvls[order(nums)])
+    }
+  }
+  obj
+}
+
 users <- reactiveValues(count = 0) # https://stackoverflow.com/questions/47728208/how-many-users-are-connected-to-my-shiny-application
 
 
@@ -5181,6 +5194,7 @@ if (input$SCTfastMNN){
     print(paste("Rename:", res.name, "->", new.res.name))
     seurat_temp@meta.data[, new.res.name] <- seurat_temp@meta.data[, res.name]
     seurat_temp@meta.data <- seurat_temp@meta.data[, colnames(seurat_temp@meta.data) != res.name]
+    seurat_temp <- sort_cluster_levels(seurat_temp, new.res.name)
     updatePCs_selection(30)
    showNotification("MNNの次元圧縮データを用いてUMAPまで計算済み。", type='error', duration = 120)
     # Deafult assayの警告
@@ -5788,6 +5802,7 @@ tryCatch({
         print(paste("Rename:", res.name, "->", new.res.name))
         seurat_temp@meta.data[, new.res.name] <- seurat_temp@meta.data[, res.name]
         seurat_temp@meta.data <- seurat_temp@meta.data[, colnames(seurat_temp@meta.data) != res.name]
+        seurat_temp <- sort_cluster_levels(seurat_temp, new.res.name)
         updatePCs_selection(30)
        showNotification("harmonyの次元圧縮データを用いてUMAPまで計算済み。", type='error', duration = 120)
         # Deafult assayの警告
@@ -5917,7 +5932,7 @@ if (input$SCTfastMNN){
         print(paste("Rename:", res.name, "->", new.res.name))
         seurat_temp@meta.data[, new.res.name] <- seurat_temp@meta.data[, res.name]
         seurat_temp@meta.data <- seurat_temp@meta.data[, colnames(seurat_temp@meta.data) != res.name]
-
+        seurat_temp <- sort_cluster_levels(seurat_temp, new.res.name)
 
 #        seurat_temp@meta.data[,paste0('harmony.', DefaultAssay(seurat_temp), '_snn_res.0.8')] <- seurat_temp@meta.data[,paste0(DefaultAssay(seurat_temp),'_snn_res.0.8')]
 #        seurat_temp@meta.data <- seurat_temp@meta.data[, colnames(seurat_temp@meta.data) != paste0(DefaultAssay(seurat_temp),'_snn_res.0.8')]
@@ -6316,6 +6331,7 @@ ReductionUse <<- 'RNA.scvi'
         print(paste("Rename:", res.name, "->", new.res.name))
         seurat_object@meta.data[, new.res.name] <<- seurat_object@meta.data[, res.name]
         seurat_object@meta.data <<- seurat_object@meta.data[, colnames(seurat_object@meta.data) != res.name]
+        seurat_object <<- sort_cluster_levels(seurat_object, new.res.name)
 
         if (!is.null(seurat_object@meta.data)){
           seurat_object@meta.data[]  <<- lapply(seurat_object@meta.data, function(x) {if((length(levels(as.factor(x))) < 50) ) {as.factor(x)
@@ -6647,6 +6663,7 @@ output$iRECODE_plot <- renderImage({
           print(paste("Rename:", res.name, "->", new.res.name))
           seurat_object@meta.data[, new.res.name] <<- seurat_object@meta.data[, res.name]
           seurat_object@meta.data <<- seurat_object@meta.data[, colnames(seurat_object@meta.data) != res.name]
+          seurat_object <<- sort_cluster_levels(seurat_object, new.res.name)
         }
 
         assaylist <- NULL
@@ -6964,6 +6981,7 @@ all.genes <- rownames(seurat_object)
       print(paste("Rename:", res.name, "->", new.res.name))
       seurat_object@meta.data[, new.res.name] <<- seurat_object@meta.data[, res.name]
       seurat_object@meta.data <<- seurat_object@meta.data[, colnames(seurat_object@meta.data) != res.name]
+      seurat_object <<- sort_cluster_levels(seurat_object, new.res.name)
     }
     updatePCs_selection(30)
     updateUtilitiesReduction()
@@ -13414,6 +13432,8 @@ actual_dims <- min(as.numeric(snn_dims), max_dims)
         print(new.res.name)
         seurat_object@meta.data[,new.res.name] <<- seurat_object@meta.data[,res.name]
         seurat_object@meta.data <<- seurat_object@meta.data[, colnames(seurat_object@meta.data) != res.name]
+        seurat_object <<- sort_cluster_levels(seurat_object, new.res.name)
+        seurat_object <<- sort_cluster_levels(seurat_object, "seurat_clusters")
 
         updateNumPC_choices()
 
@@ -13743,6 +13763,7 @@ seurat_object <<- RunPCA(seurat_object, assay = Banksy_name, reduction.name = re
     features = rownames(seurat_object), npcs = 30)
 seurat_object <<- FindNeighbors(seurat_object, reduction = reduction.name, dims = 1:30)
 seurat_object <<- FindClusters(seurat_object, cluster.name = paste0(reduction.name, ".Leiden.res0.5"), resolution = 0.5, algorithm = 4)
+seurat_object <<- sort_cluster_levels(seurat_object, paste0(reduction.name, ".Leiden.res0.5"))
         updateSelInpColor()
         updateInputLRclusters()
         updateMetadata()
