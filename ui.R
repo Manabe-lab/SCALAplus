@@ -3421,11 +3421,11 @@ tags$br(),
                 tags$hr(),
                 tags$h4("Visualization options:"),
                 conditionalPanel(
-                  condition = "input.vlnGroupBy == input.umapColorBy",
+                  condition = "input.vlnGroupBy == input.umapColorBy && !input.vlnSplitByFlag",
                   checkboxInput("vlnUseUmapColors", label = "Use UMAP colors", value = FALSE)
                 ),
                 conditionalPanel(
-                  condition = "!(input.vlnGroupBy == input.umapColorBy && input.vlnUseUmapColors)",
+                  condition = "!(input.vlnGroupBy == input.umapColorBy && !input.vlnSplitByFlag && input.vlnUseUmapColors)",
                   selectInput("vlnColorPalette", "Color palette:",
                               c( "Set1", "Set2", "Set3",  "Paired", "Dark2", "Accent", "Spectral",
                                          'stallion','stallion2','calm','kelly','alphabet','bear','ironMan','circus','paired',
