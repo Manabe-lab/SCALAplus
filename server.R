@@ -2075,6 +2075,20 @@ observeEvent(input$uploadSeuratRdsConfirm, {
             seurat_object <<- qs_read(input$uploadRdsFile$datapath, nthreads=4)
           }
 
+# 古いSeuratオブジェクトの場合、UpdateSeuratObjectで変換
+tryCatch({
+  obj_version <- seurat_object@version
+  if (is.null(obj_version) || obj_version < package_version("5.0.0")) {
+    showNotification("Old Seurat format detected. Updating...", type = "message", duration = 5)
+    seurat_object <<- UpdateSeuratObject(seurat_object)
+    showNotification("Seurat object updated.", type = "message", duration = 5)
+  }
+}, error = function(e) {
+  showNotification("Old Seurat format detected. Updating...", type = "message", duration = 5)
+  seurat_object <<- UpdateSeuratObject(seurat_object)
+  showNotification("Seurat object updated.", type = "message", duration = 5)
+})
+
 # v5ではlayerをjointする
 if (is_assay5(seurat_object)){
 tryCatch({
@@ -2157,21 +2171,26 @@ observeEvent(input$uploadLocalRdsConfirm, {
                               seurat_object <<- qs_read(file_selected$datapath)
                             }
 print("===============")
-    #      print(seurat_object)
 
+# 古いSeuratオブジェクトの場合、UpdateSeuratObjectで変換
 tryCatch({
-print(seurat_object)
-  }, error = function(e) {
-    print(paste("Error :  ", e))
-    showNotification("Seura object error. Maybe old object format? Trying UpdateSeuratObject....")
+  obj_version <- seurat_object@version
+  if (is.null(obj_version) || obj_version < package_version("5.0.0")) {
+    showNotification("Old Seurat format detected. Updating...", type = "message", duration = 5)
     seurat_object <<- UpdateSeuratObject(seurat_object)
-tryCatch({
-print(seurat_object)
-  }, error = function(e) {
-    showNotification(paste("Error :  ", e))
-    showNotification("UpdateSeuratObject did not work.")
+    showNotification("Seurat object updated.", type = "message", duration = 5)
+  }
+}, error = function(e) {
+  showNotification("Old Seurat format detected. Updating...", type = "message", duration = 5)
+  seurat_object <<- UpdateSeuratObject(seurat_object)
+  showNotification("Seurat object updated.", type = "message", duration = 5)
+})
 
-    })
+tryCatch({
+  print(seurat_object)
+}, error = function(e) {
+  print(paste("Error :  ", e))
+  showNotification("Seurat object print error, but data may still be usable.", type = "warning")
 })
 
 # v5ではlayerをjointする
