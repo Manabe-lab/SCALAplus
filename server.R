@@ -26323,6 +26323,8 @@ content = function(file){
     export_clustertable_RNA <<- cluster_df
   }
 
+  palo_cache <- reactiveVal(list(key = NULL, cols = NULL))
+
   updateReduction <- function()
   {
     session$sendCustomMessage("handler_startLoader", c("dim_red2_loader", 10))
@@ -26369,6 +26371,32 @@ content = function(file){
         identity_levels <- levels(factor(meta[[input$umapColorBy]]))
         if (length(identity_levels) > 0) {
             cols <- setNames(cols[1:length(identity_levels)], identity_levels)
+        }
+
+        # Palo: spatially-aware color optimization
+        if (input$umapPalo && is.factor(meta[[input$umapColorBy]])) {
+          palo_key <- paste(input$umapColorPalette, input$umapColorBy, input$umapType, sep = "||")
+          cached <- palo_cache()
+          if (identical(cached$key, palo_key)) {
+            cols <- cached$cols
+          } else {
+            tryCatch({
+              coords <- as.matrix(
+                seurat_object@reductions[[input$umapType]]@cell.embeddings[, c(input$umapX, input$umapY)]
+              )
+              clusters <- meta[[input$umapColorBy]]
+              palo_result <- Palo::Palo(
+                position = coords,
+                cluster = clusters,
+                palette = unname(cols)
+              )
+              cols <- palo_result
+              palo_cache(list(key = palo_key, cols = cols))
+              showNotification("Palo: color palette optimized", type = "message", duration = 3)
+            }, error = function(e) {
+              showNotification(paste("Palo error:", e$message), type = "warning", duration = 5)
+            })
+          }
         }
 
         if (input$umapDotBorder > 0){
