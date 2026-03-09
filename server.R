@@ -16712,6 +16712,21 @@ SplitBy  <- NULL
         #prepare colors
         color_length <- length(unique(meta[, input$vlnGroupBy]))
 
+      # Use UMAP colors if checkbox is checked and colorBy matches
+      if (isTRUE(input$vlnUseUmapColors) && is.null(SplitBy)) {
+        shared <- shared_cluster_cols()
+        if (!is.null(shared$cols) && identical(shared$colorBy, input$vlnGroupBy)) {
+          cols <- shared$cols
+          col_vector <- unname(shared$cols)
+        } else {
+          col_vector <- brewer.pal(min(20, brewer.pal.info["Set1", "maxcolors"]), "Set1")
+          if (length(col_vector) < color_length) {
+            cols <- colorRampPalette(col_vector)(color_length)
+          } else {
+            cols <- col_vector
+          }
+        }
+      } else {
       if (input$vlnColorPalette %in% c("Set1", "Set2", "Set3",  "Paired", "Dark2", "Accent","Spectral")){
       col_vector <- brewer.pal(min(20, brewer.pal.info[input$vlnColorPalette, "maxcolors"]), input$vlnColorPalette)
       } else {
@@ -16730,6 +16745,7 @@ SplitBy  <- NULL
           cols <- colorRampPalette(col_vector)(color_length )
       } else {
           cols <- col_vector
+      }
       }
 
         varTextarea <- input$vlnStackedGenes
