@@ -276,27 +276,30 @@ initializeAfterDataLoad <- function(organism = "mouse") {
 
     # Update gene name column choices from meta.features
     # Assay5では@meta.data、Assay(v4)では@meta.featuresを使用
+    # character/factor列のみ（vst統計量等のnumeric列を除外）
     print('updateGeneNameColumn')
     tryCatch({
       assay_obj <- seurat_object@assays[[DefaultAssay(seurat_object)]]
-      meta_feature_cols <- NULL
+      meta_features_df <- NULL
 
       if (inherits(assay_obj, "Assay5")) {
-        # Assay5: use @meta.data slot
         if (!is.null(assay_obj@meta.data) && ncol(assay_obj@meta.data) > 0) {
-          meta_feature_cols <- colnames(assay_obj@meta.data)
+          meta_features_df <- assay_obj@meta.data
         }
       } else {
-        # Assay (v4): use @meta.features slot
         if (!is.null(assay_obj@meta.features) && ncol(assay_obj@meta.features) > 0) {
-          meta_feature_cols <- colnames(assay_obj@meta.features)
+          meta_features_df <- assay_obj@meta.features
         }
       }
 
-      if (!is.null(meta_feature_cols) && length(meta_feature_cols) > 0) {
-        updateSelectInput(session, "h5adGeneNameColumn",
-                          choices = c("-" = "none", meta_feature_cols))
-        print(paste("Found", length(meta_feature_cols), "gene annotation columns:", paste(meta_feature_cols, collapse = ", ")))
+      if (!is.null(meta_features_df) && ncol(meta_features_df) > 0) {
+        valid_cols <- sapply(meta_features_df, function(x) is.character(x) || is.factor(x))
+        meta_feature_cols <- colnames(meta_features_df)[valid_cols]
+        if (length(meta_feature_cols) > 0) {
+          updateSelectInput(session, "h5adGeneNameColumn",
+                            choices = c("-" = "none", meta_feature_cols))
+          print(paste("Found", length(meta_feature_cols), "gene name columns:", paste(meta_feature_cols, collapse = ", ")))
+        }
       }
     }, error = function(e) {
       print(paste("Error updating gene name columns:", e))
