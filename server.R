@@ -15950,7 +15950,7 @@ print(geneS)
         color_length <- length(unique(meta[, input$vlnGroupBy]))
 
       if (input$vlnColorPalette %in% c("Set1", "Set2", "Set3",  "Paired", "Dark2", "Accent","Spectral")){
-      col_vector <- brewer.pal(20, input$vlnColorPalette)
+      col_vector <- brewer.pal(min(20, brewer.pal.info[input$vlnColorPalette, "maxcolors"]), input$vlnColorPalette)
       } else {
       col_vector <- get(input$vlnColorPalette)
       }
@@ -15972,6 +15972,16 @@ if (effective_point_size == 0) { pointalpha = 0}
 SplitBy  <- NULL
           if ( (input$vlnSplitByFlag ) && ( input$vlnGroupBy != input$vlnSplitBy ) ) {
             SplitBy  <- input$vlnSplitBy  } # Boolは&&
+
+            # split.by がある場合、cols は split レベル数に合わせる
+            if (!is.null(SplitBy)) {
+              split_levels <- length(unique(meta[, SplitBy]))
+              if (length(col_vector) < split_levels) {
+                cols <- colorRampPalette(col_vector)(split_levels)
+              } else {
+                cols <- col_vector[1:split_levels]
+              }
+            }
 
             print('split.by')
             print(SplitBy)
@@ -16665,12 +16675,20 @@ SplitBy  <- NULL
         color_length <- length(unique(meta[, input$vlnGroupBy]))
 
       if (input$vlnColorPalette %in% c("Set1", "Set2", "Set3",  "Paired", "Dark2", "Accent","Spectral")){
-      col_vector <- brewer.pal(20, input$vlnColorPalette)
+      col_vector <- brewer.pal(min(20, brewer.pal.info[input$vlnColorPalette, "maxcolors"]), input$vlnColorPalette)
       } else {
       col_vector <- get(input$vlnColorPalette)
       }
 
-      if (length(col_vector) < color_length) {
+      # split.by がある場合、cols は split レベル数に合わせる
+      if (!is.null(SplitBy)) {
+        split_levels <- length(unique(meta[, SplitBy]))
+        if (length(col_vector) < split_levels) {
+          cols <- colorRampPalette(col_vector)(split_levels)
+        } else {
+          cols <- col_vector[1:split_levels]
+        }
+      } else if (length(col_vector) < color_length) {
           cols <- colorRampPalette(col_vector)(color_length )
       } else {
           cols <- col_vector
