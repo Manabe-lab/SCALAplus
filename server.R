@@ -13433,7 +13433,6 @@ actual_dims <- min(as.numeric(snn_dims), max_dims)
         seurat_object@meta.data[,new.res.name] <<- seurat_object@meta.data[,res.name]
         seurat_object@meta.data <<- seurat_object@meta.data[, colnames(seurat_object@meta.data) != res.name]
         seurat_object <<- sort_cluster_levels(seurat_object, new.res.name)
-        seurat_object <<- sort_cluster_levels(seurat_object, "seurat_clusters")
 
         updateNumPC_choices()
 
