@@ -14932,6 +14932,14 @@ if (any(str_detect( c("pagoda2","VISION", "AUCell", "singscore", "ssgsea", "JASM
 
 
         #prepare colors
+        if (isTRUE(input$hmUseUmapColors)) {
+          shared <- shared_cluster_cols()
+          if (!is.null(shared$cols) && identical(shared$colorBy, "seurat_clusters")) {
+            cols <- shared$cols
+          } else {
+            cols <- brewer.pal(9, "Set1")
+          }
+        } else {
         if (input$heatmapColorPalette == "Set1") {
           if (length(levels(factor(seurat_object@active.ident)))<10)
           { cols = brewer.pal(9, input$heatmapColorPalette)} else {
@@ -14952,6 +14960,7 @@ if (any(str_detect( c("pagoda2","VISION", "AUCell", "singscore", "ssgsea", "JASM
           { cols = brewer.pal(12, input$heatmapColorPalette)} else {
           cols = colorRampPalette(brewer.pal(12, input$heatmapColorPalette))(length(levels(factor(seurat_object@active.ident))))
           }
+        }
         }
 print("Calculating heatmap")
 print("top genes")
@@ -15640,6 +15649,14 @@ observeEvent(input$heatmapConfirm, {
       Idents(seurat_object) <- group_by_var
 
       # Prepare colors
+      if (isTRUE(input$hm2UseUmapColors)) {
+        shared <- shared_cluster_cols()
+        if (!is.null(shared$cols) && identical(shared$colorBy, input$heatmapGroupBy)) {
+          cols <- shared$cols
+        } else {
+          cols <- brewer.pal(12, "Set3")
+        }
+      } else {
       if (input$heatmapColorPalette2 == "Set1") {
         if (length(levels(factor(Idents(seurat_object))))<10) {
           cols = brewer.pal(9, input$heatmapColorPalette2)
@@ -15662,6 +15679,7 @@ observeEvent(input$heatmapConfirm, {
         } else {
           cols = colorRampPalette(brewer.pal(12, input$heatmapColorPalette2))(length(levels(factor(Idents(seurat_object)))))
         }
+      }
       }
 
       # Check if clustering is requested
@@ -15949,6 +15967,22 @@ print(geneS)
         #prepare colors
         color_length <- length(unique(meta[, input$vlnGroupBy]))
 
+      # Use UMAP colors if checkbox is checked and colorBy matches
+      if (isTRUE(input$vlnUseUmapColors)) {
+        shared <- shared_cluster_cols()
+        if (!is.null(shared$cols) && identical(shared$colorBy, input$vlnGroupBy)) {
+          cols <- shared$cols
+          col_vector <- unname(shared$cols)
+        } else {
+          # Fallback to default palette
+          col_vector <- brewer.pal(min(20, brewer.pal.info["Set1", "maxcolors"]), "Set1")
+          if (length(col_vector) < color_length) {
+            cols <- colorRampPalette(col_vector)(color_length)
+          } else {
+            cols <- col_vector
+          }
+        }
+      } else {
       if (input$vlnColorPalette %in% c("Set1", "Set2", "Set3",  "Paired", "Dark2", "Accent","Spectral")){
       col_vector <- brewer.pal(min(20, brewer.pal.info[input$vlnColorPalette, "maxcolors"]), input$vlnColorPalette)
       } else {
@@ -15959,6 +15993,7 @@ print(geneS)
           cols <- colorRampPalette(col_vector)(color_length )
       } else {
           cols <- col_vector
+      }
       }
 
 
@@ -26324,6 +26359,7 @@ content = function(file){
   }
 
   palo_cache <- reactiveVal(list(key = NULL, cols = NULL))
+  shared_cluster_cols <- reactiveVal(list(cols = NULL, colorBy = NULL))
 
   updateReduction <- function()
   {
@@ -26398,6 +26434,9 @@ content = function(file){
             })
           }
         }
+
+        # Store current UMAP colors for sharing with other plots
+        shared_cluster_cols(list(cols = cols, colorBy = input$umapColorBy))
 
         if (input$umapDotBorder > 0){
             outline_cols <- rep('black', color_length)

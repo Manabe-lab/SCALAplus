@@ -3420,10 +3420,17 @@ tags$br(),
                 
                 tags$hr(),
                 tags$h4("Visualization options:"),
-                selectInput("vlnColorPalette", "Color palette:",
-                            c( "Set1", "Set2", "Set3",  "Paired", "Dark2", "Accent", "Spectral",
-                                       'stallion','stallion2','calm','kelly','alphabet','bear','ironMan','circus','paired',
-                                       'grove','summerNight','zissou','Zissou1Continuous','darjeeling','rushmore','captain'), selected = 'Set1'),
+                conditionalPanel(
+                  condition = "input.vlnGroupBy == input.umapColorBy",
+                  checkboxInput("vlnUseUmapColors", label = "Use UMAP colors", value = FALSE)
+                ),
+                conditionalPanel(
+                  condition = "!(input.vlnGroupBy == input.umapColorBy && input.vlnUseUmapColors)",
+                  selectInput("vlnColorPalette", "Color palette:",
+                              c( "Set1", "Set2", "Set3",  "Paired", "Dark2", "Accent", "Spectral",
+                                         'stallion','stallion2','calm','kelly','alphabet','bear','ironMan','circus','paired',
+                                         'grove','summerNight','zissou','Zissou1Continuous','darjeeling','rushmore','captain'), selected = 'Set1')
+                ),
                 tags$div(style = "display: flex; align-items: center;",
                   checkboxInput("addnoise", label= "Add small noise?", value = FALSE, width = NULL),
                   tags$span(
@@ -3529,9 +3536,16 @@ tags$br(),
                                selectInput("heatmapGroupBy", "Group by:",
                                           c("Cluster" = "seurat_clusters")),
 
-                               selectInput("heatmapColorPalette2", "Cluster color palette:",
-                                          choices = c("Set1", "Set2", "Set3", "Paired"),
-                                          selected = "Set3"),
+                               conditionalPanel(
+                                 condition = "input.heatmapGroupBy == input.umapColorBy",
+                                 checkboxInput("hm2UseUmapColors", label = "Use UMAP colors", value = FALSE)
+                               ),
+                               conditionalPanel(
+                                 condition = "!(input.heatmapGroupBy == input.umapColorBy && input.hm2UseUmapColors)",
+                                 selectInput("heatmapColorPalette2", "Cluster color palette:",
+                                            choices = c("Set1", "Set2", "Set3", "Paired"),
+                                            selected = "Set3")
+                               ),
 
                                selectInput("heatmapSlot", label = "Data slot:",
                                           choices = list("Scaled data" = "scale.data",
@@ -3643,8 +3657,15 @@ tags$br(),
                                          sliderInput(inputId = "heatmapNum", label = "Number of top marker genes for plots",min = 10, max = 500, value = 20, step = 10),
                                           sliderInput(inputId = "downNum", label = "Number of cells to show in heatmap",min = 1000, max = 5000, value = 1500, step = 100),
                                            checkboxInput("staticdownsample", label= "Downsample for static heatmap?", value = FALSE, width = NULL),
-                                         selectInput("heatmapColorPalette", "Color palette:",c( "Set1",
-                                        "Set2", "Set3",  "Paired", "Dark2", "Accent","Spectral")),
+                                         conditionalPanel(
+                                           condition = "input.umapColorBy == 'seurat_clusters'",
+                                           checkboxInput("hmUseUmapColors", label = "Use UMAP colors", value = FALSE)
+                                         ),
+                                         conditionalPanel(
+                                           condition = "!(input.umapColorBy == 'seurat_clusters' && input.hmUseUmapColors)",
+                                           selectInput("heatmapColorPalette", "Color palette:",c( "Set1",
+                                                      "Set2", "Set3",  "Paired", "Dark2", "Accent","Spectral"))
+                                         ),
                       sliderInput("hmWidth", "Plot width:", min = 200, max = 1200, value = 800, step = 50),
                       sliderInput("hmHeight", "Plot height:", min = 200, max = 1600, value = 600, step = 50),
                                      ),
