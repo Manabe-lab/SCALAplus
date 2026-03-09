@@ -5143,7 +5143,7 @@ if (input$SCTfastMNN){
     # Increase future.globals.maxSize for large datasets
     options(future.globals.maxSize = 2000 * 1024^2)  # Set to 2GB
     seurat_temp <- FindNeighbors(seurat_temp, reduction = ReductionUse, dims = 1:30)
-    seurat_temp <- FindClusters(seurat_temp, graph.name = "SCT_snn") # graph nameを指定しないとエラーになる。RNAを使っているので、mnnだがRNA
+    seurat_temp <- FindClusters(seurat_temp, graph.name = "SCT_snn", algorithm = 4) # Leiden
 
 } else { #SCTではないとき
     print("Runnning RunFastMNN with RNA")
@@ -5162,7 +5162,7 @@ if (input$SCTfastMNN){
     # Increase future.globals.maxSize for large datasets
     options(future.globals.maxSize = 2000 * 1024^2)  # Set to 2GB
     seurat_temp <- FindNeighbors(seurat_temp, reduction = ReductionUse, dims = 1:30)
-    seurat_temp <- FindClusters(seurat_temp, graph.name = "RNA_snn") # graph nameを指定しないとエラーになる。RNAを使っているので、mnnだがRNA
+    seurat_temp <- FindClusters(seurat_temp, graph.name = "RNA_snn", algorithm = 4) # Leiden
 }
 
     assaylist <- NULL
@@ -5174,7 +5174,7 @@ if (input$SCTfastMNN){
 
     # mnnを使ったことが分かるようにする — 通常クラスタリングと同じ命名規則に統一
     res.name <- paste0(DefaultAssay(seurat_temp), '_snn_res.0.8')
-    new.res.name <- paste0(ReductionUse, '.Louvain_res.0.8')
+    new.res.name <- paste0(ReductionUse, '.Leiden_res.0.8')
     print(paste("Rename:", res.name, "->", new.res.name))
     seurat_temp@meta.data[, new.res.name] <- seurat_temp@meta.data[, res.name]
     seurat_temp@meta.data <- seurat_temp@meta.data[, colnames(seurat_temp@meta.data) != res.name]
@@ -5771,17 +5771,17 @@ tryCatch({
             if (input$SCTfastMNN){
         seurat_temp <- RunUMAP(seurat_temp, assay = "SCT",  reduction = ReductionUse, dims = 1:30, reduction.name = "SCT.harmony.umap",reduction.key = "SCT.harmony.UMAP_")
             seurat_temp <- FindNeighbors(seurat_temp,  reduction = ReductionUse, dims = 1:30)
-            seurat_temp <- FindClusters(seurat_temp, graph.name = "SCT_snn")
+            seurat_temp <- FindClusters(seurat_temp, graph.name = "SCT_snn", algorithm = 4) # Leiden
               } else {
        seurat_temp <- RunUMAP(seurat_temp, assay = "RNA", reduction = ReductionUse, dims = 1:30, reduction.name = "RNA.harmony.umap", reduction.key = "RNA.harmony.UMAP_")
          seurat_temp <- FindNeighbors(seurat_temp, reduction = ReductionUse, dims = 1:30)
-          seurat_temp <- FindClusters(seurat_temp, graph.name = "RNA_snn")
+          seurat_temp <- FindClusters(seurat_temp, graph.name = "RNA_snn", algorithm = 4) # Leiden
               }
 
         print("Done Harmonry UMAP Calc")
         # harmonyを使ったことが分かるようにする — 通常クラスタリングと同じ命名規則に統一
         res.name <- paste0(DefaultAssay(seurat_temp), '_snn_res.0.8')
-        new.res.name <- paste0(ReductionUse, '.Louvain_res.0.8')
+        new.res.name <- paste0(ReductionUse, '.Leiden_res.0.8')
         print(paste("Rename:", res.name, "->", new.res.name))
         seurat_temp@meta.data[, new.res.name] <- seurat_temp@meta.data[, res.name]
         seurat_temp@meta.data <- seurat_temp@meta.data[, colnames(seurat_temp@meta.data) != res.name]
@@ -5895,13 +5895,13 @@ if (input$SCTfastMNN){
         seurat_temp <- RunUMAP(seurat_temp, assay = "SCT.scnrm", reduction = 'SCT.scnrm.pca', dims = 1:30,
           reduction.name = "SCT.scnrm.umap", reduction.key = "SCT.scnrm.UMAP_")
             seurat_temp <- FindNeighbors(seurat_temp,  reduction = 'SCT.scnrm.pca', dims = 1:30)
-            seurat_temp <- FindClusters(seurat_temp, graph.name = "SCT.scnrm_snn")
+            seurat_temp <- FindClusters(seurat_temp, graph.name = "SCT.scnrm_snn", algorithm = 4) # Leiden
                 ReductionUse <-  'SCT.scnrm.pca'
               } else {
         seurat_temp <- RunUMAP(seurat_temp, assay = "RNA.scnrm", reduction = 'RNA.scnrm.pca', dims = 1:30,
           reduction.name = "RNA.scnrm.umap", reduction.key = "RNA.scnrm.UMAP_" )
             seurat_temp <- FindNeighbors(seurat_temp,  reduction = 'RNA.scnrm.pca', dims = 1:30)
-            seurat_temp <- FindClusters(seurat_temp, graph.name = "RNA.scnrm_snn")
+            seurat_temp <- FindClusters(seurat_temp, graph.name = "RNA.scnrm_snn", algorithm = 4) # Leiden
              ReductionUse <-  'RNA.scnrm.pca'
               }
 
@@ -5910,7 +5910,7 @@ if (input$SCTfastMNN){
     #   scanoramaを使ったことが分かるようにする — 通常クラスタリングと同じ命名規則に統一
         print("snn_res name 変更")
         res.name <- paste0(seurat_object@active.assay, '.scnrm_snn_res.', "0.8")
-        new.res.name <- paste0(ReductionUse, '.Louvain_res.0.8')
+        new.res.name <- paste0(ReductionUse, '.Leiden_res.0.8')
         print(paste("Rename:", res.name, "->", new.res.name))
         seurat_temp@meta.data[, new.res.name] <- seurat_temp@meta.data[, res.name]
         seurat_temp@meta.data <- seurat_temp@meta.data[, colnames(seurat_temp@meta.data) != res.name]
@@ -6304,12 +6304,12 @@ ReductionUse <<- 'RNA.scvi'
    # DefaultAssay(seurat_object) <<- 'RNA'
     seurat_object <<- RunUMAP(seurat_object, reduction = 'RNA.scvi', dims = 1:10, reduction.name = "RNA.scvi.umap", reduction.key = "RNA.scvi.UMAP_")
     seurat_object <<- FindNeighbors(seurat_object, reduction = 'RNA.scvi', dims = 1:10)
-    seurat_object <<- FindClusters(seurat_object) # graph nameを指定しないとエラーになる。RNAを使っているので
+    seurat_object <<- FindClusters(seurat_object, algorithm = 4) # Leiden
 
 
         # scviを使ったことが分かるようにする — 通常クラスタリングと同じ命名規則に統一
         res.name <- "RNA_snn_res.0.8"
-        new.res.name <- paste0(ReductionUse, '.Louvain_res.0.8')
+        new.res.name <- paste0(ReductionUse, '.Leiden_res.0.8')
         print(paste("Rename:", res.name, "->", new.res.name))
         seurat_object@meta.data[, new.res.name] <<- seurat_object@meta.data[, res.name]
         seurat_object@meta.data <<- seurat_object@meta.data[, colnames(seurat_object@meta.data) != res.name]
@@ -6635,11 +6635,11 @@ output$iRECODE_plot <- renderImage({
 
     seurat_object <<- RunUMAP(seurat_object, reduction = 'iRCD.pca', dims = 1:30, reduction.name = "iRCD.pca.umap", reduction.key = "iRCD.pca.UMAP_")
     seurat_object <<- FindNeighbors(seurat_object, reduction = 'iRCD.pca', dims = 1:30)
-    seurat_object <<- FindClusters(seurat_object, graph.name = "iRCD_snn") # graph
+    seurat_object <<- FindClusters(seurat_object, graph.name = "iRCD_snn", algorithm = 4) # Leiden
 
         # RECODEを使ったことが分かるようにする — 通常クラスタリングと同じ命名規則に統一
         res.name <- "iRCD_snn_res.0.8"
-        new.res.name <- "iRCD.pca.Louvain_res.0.8"
+        new.res.name <- "iRCD.pca.Leiden_res.0.8"
         if (res.name %in% colnames(seurat_object@meta.data)) {
           print(paste("Rename:", res.name, "->", new.res.name))
           seurat_object@meta.data[, new.res.name] <<- seurat_object@meta.data[, res.name]
@@ -6947,7 +6947,7 @@ all.genes <- rownames(seurat_object)
 		seurat_object <<- RunPCA(seurat_object, npcs = 30, verbose = FALSE, reduction.name= "seurat.pca", reduction.key='seurat.PC_')
 		seurat_object <<- RunUMAP(seurat_object, reduction = "seurat.pca", dims = 1:30, reduction.name = "seurat.umap", reduction.key='seurat.UMAP_')
 		seurat_object <<- FindNeighbors(seurat_object, reduction = "seurat.pca", dims = 1:30)
-		seurat_object <<- FindClusters(seurat_object)
+		seurat_object <<- FindClusters(seurat_object, algorithm = 4) # Leiden
         # seurat integrationを使ったことが分かるようにする — 通常クラスタリングと同じ命名規則に統一
     print('before changing 0.8')
     meta_data <- names(seurat_object@meta.data)
@@ -6957,7 +6957,7 @@ all.genes <- rownames(seurat_object)
       if (candidate %in% meta_data) { res.name <- candidate; break }
     }
     if (!is.null(res.name)) {
-      new.res.name <- "seurat.pca.Louvain_res.0.8"
+      new.res.name <- "seurat.pca.Leiden_res.0.8"
       print(paste("Rename:", res.name, "->", new.res.name))
       seurat_object@meta.data[, new.res.name] <<- seurat_object@meta.data[, res.name]
       seurat_object@meta.data <<- seurat_object@meta.data[, colnames(seurat_object@meta.data) != res.name]
