@@ -434,6 +434,9 @@ ui <- dashboardPage(
                                        tags$h4("Accumulated server files:"),
                                        verbatimTextOutput("serverFilesList"),
                                        tags$br(),
+                                       actionButton(inputId = "uploadMultiLocalRdsConfirm", label = "Load server RDS/qs/qs2",class="btn btn-warning"),
+                                       tags$br(),
+                                       tags$br(),
                                        fluidRow(
                                          column(6, actionButton(inputId = "clearMultiServerFiles", label = "Clear All Server Files", class="btn btn-danger")),
                                          column(6,
@@ -441,8 +444,6 @@ ui <- dashboardPage(
                                            tags$style(type="text/css", "#removeServerFileIndex { margin-top: 0px; }")
                                          )
                                        ),
-                                       tags$br(),
-                                       actionButton(inputId = "uploadMultiLocalRdsConfirm", label = "Load server RDS/qs/qs2",class="btn btn-warning"),
                                        tags$br(),
                                       tags$br(),
                                        tags$h2("Data integration:"),
