@@ -5172,14 +5172,12 @@ if (input$SCTfastMNN){
           seurat_temp@meta.data[]  <- lapply(seurat_temp@meta.data, function(x) {if(is.character(x) & (length(levels(as.factor(x))) <50) ) as.factor(x) else x })
         }
 
-    # mnnを使ったことが分かるようにする  RNA_snn_res.0.8の名前の修正
-    print('ulitiliesactiveassay')
-    print(input$utilitiesActiveAssay)
-    print(paste0('mnn.',DefaultAssay(seurat_temp),'_snn_res.0.8'))
-    print(paste0(DefaultAssay(seurat_temp),'_snn_res.0.8'))
-
-    seurat_temp@meta.data[,paste0(DefaultAssay(seurat_temp),'.mnn_snn_res.0.8')] <- seurat_temp@meta.data[,paste0(DefaultAssay(seurat_temp),'_snn_res.0.8')]
-    seurat_temp@meta.data <- seurat_temp@meta.data[, colnames(seurat_temp@meta.data) != paste0(DefaultAssay(seurat_temp),'_snn_res.0.8')]
+    # mnnを使ったことが分かるようにする — 通常クラスタリングと同じ命名規則に統一
+    res.name <- paste0(DefaultAssay(seurat_temp), '_snn_res.0.8')
+    new.res.name <- paste0(ReductionUse, '.Louvain_res.0.8')
+    print(paste("Rename:", res.name, "->", new.res.name))
+    seurat_temp@meta.data[, new.res.name] <- seurat_temp@meta.data[, res.name]
+    seurat_temp@meta.data <- seurat_temp@meta.data[, colnames(seurat_temp@meta.data) != res.name]
     updatePCs_selection(30)
    showNotification("MNNの次元圧縮データを用いてUMAPまで計算済み。", type='error', duration = 120)
     # Deafult assayの警告
@@ -5781,13 +5779,12 @@ tryCatch({
               }
 
         print("Done Harmonry UMAP Calc")
-        # harmonyを使ったことが分かるようにする  RNA_snn_res.0.8の名前の修正
-        print(input$utilitiesActiveAssay)
-        print(paste0('harmony.',DefaultAssay(seurat_temp),'_snn_res.0.8'))
-        print(paste0(DefaultAssay(seurat_temp),'_snn_res.0.8'))
-
-        seurat_temp@meta.data[,paste0(DefaultAssay(seurat_temp),'.harmony',  '_snn_res.0.8')] <- seurat_temp@meta.data[,paste0(DefaultAssay(seurat_temp),'_snn_res.0.8')]
-        seurat_temp@meta.data <- seurat_temp@meta.data[, colnames(seurat_temp@meta.data) != paste0(DefaultAssay(seurat_temp),'_snn_res.0.8')]
+        # harmonyを使ったことが分かるようにする — 通常クラスタリングと同じ命名規則に統一
+        res.name <- paste0(DefaultAssay(seurat_temp), '_snn_res.0.8')
+        new.res.name <- paste0(ReductionUse, '.Louvain_res.0.8')
+        print(paste("Rename:", res.name, "->", new.res.name))
+        seurat_temp@meta.data[, new.res.name] <- seurat_temp@meta.data[, res.name]
+        seurat_temp@meta.data <- seurat_temp@meta.data[, colnames(seurat_temp@meta.data) != res.name]
         updatePCs_selection(30)
        showNotification("harmonyの次元圧縮データを用いてUMAPまで計算済み。", type='error', duration = 120)
         # Deafult assayの警告
@@ -5910,14 +5907,12 @@ if (input$SCTfastMNN){
 
         print("Done Harmonry UMAP Calc")
 
-    #   どのreductoinを使ったことが分かるようにする  RNA_snn_res.0.8の名前の修正
+    #   scanoramaを使ったことが分かるようにする — 通常クラスタリングと同じ命名規則に統一
         print("snn_res name 変更")
-        print(seurat_temp[[]])
-        res.name = paste0(seurat_object@active.assay, '.scnrm_snn_res.', "0.8")
-        new.res.name = paste0(ReductionUse, '_snn_res.',"0.8")
-        print(res.name)
-        print(new.res.name)
-        seurat_temp@meta.data[,new.res.name] <- seurat_temp@meta.data[,res.name]
+        res.name <- paste0(seurat_object@active.assay, '.scnrm_snn_res.', "0.8")
+        new.res.name <- paste0(ReductionUse, '.Louvain_res.0.8')
+        print(paste("Rename:", res.name, "->", new.res.name))
+        seurat_temp@meta.data[, new.res.name] <- seurat_temp@meta.data[, res.name]
         seurat_temp@meta.data <- seurat_temp@meta.data[, colnames(seurat_temp@meta.data) != res.name]
 
 
@@ -6312,9 +6307,12 @@ ReductionUse <<- 'RNA.scvi'
     seurat_object <<- FindClusters(seurat_object) # graph nameを指定しないとエラーになる。RNAを使っているので
 
 
-        # どのreductoinを使ったことが分かるようにする  RNA_snn_res.0.8の名前の修正
-        seurat_object@meta.data[,"RNA.scvi.RNA_snn_res.0.8"] <<- seurat_object@meta.data[,"RNA_snn_res.0.8"]
-        seurat_object@meta.data <<- seurat_object@meta.data[, colnames(seurat_object@meta.data) !="RNA_snn_res.0.8"]
+        # scviを使ったことが分かるようにする — 通常クラスタリングと同じ命名規則に統一
+        res.name <- "RNA_snn_res.0.8"
+        new.res.name <- paste0(ReductionUse, '.Louvain_res.0.8')
+        print(paste("Rename:", res.name, "->", new.res.name))
+        seurat_object@meta.data[, new.res.name] <<- seurat_object@meta.data[, res.name]
+        seurat_object@meta.data <<- seurat_object@meta.data[, colnames(seurat_object@meta.data) != res.name]
 
         if (!is.null(seurat_object@meta.data)){
           seurat_object@meta.data[]  <<- lapply(seurat_object@meta.data, function(x) {if((length(levels(as.factor(x))) < 50) ) {as.factor(x)
@@ -6637,8 +6635,16 @@ output$iRECODE_plot <- renderImage({
 
     seurat_object <<- RunUMAP(seurat_object, reduction = 'iRCD.pca', dims = 1:30, reduction.name = "iRCD.pca.umap", reduction.key = "iRCD.pca.UMAP_")
     seurat_object <<- FindNeighbors(seurat_object, reduction = 'iRCD.pca', dims = 1:30)
-    seurat_object <<- FindClusters(seurat_object, graph.name = "iRCD_snn") # graph 
+    seurat_object <<- FindClusters(seurat_object, graph.name = "iRCD_snn") # graph
 
+        # RECODEを使ったことが分かるようにする — 通常クラスタリングと同じ命名規則に統一
+        res.name <- "iRCD_snn_res.0.8"
+        new.res.name <- "iRCD.pca.Louvain_res.0.8"
+        if (res.name %in% colnames(seurat_object@meta.data)) {
+          print(paste("Rename:", res.name, "->", new.res.name))
+          seurat_object@meta.data[, new.res.name] <<- seurat_object@meta.data[, res.name]
+          seurat_object@meta.data <<- seurat_object@meta.data[, colnames(seurat_object@meta.data) != res.name]
+        }
 
         assaylist <- NULL
         # fastMNN後にchrになるようである。
@@ -6942,12 +6948,19 @@ all.genes <- rownames(seurat_object)
 		seurat_object <<- RunUMAP(seurat_object, reduction = "seurat.pca", dims = 1:30, reduction.name = "seurat.umap", reduction.key='seurat.UMAP_')
 		seurat_object <<- FindNeighbors(seurat_object, reduction = "seurat.pca", dims = 1:30)
 		seurat_object <<- FindClusters(seurat_object)
-        # seurat integrationを使ったことが分かるようにする  RNA_snn_res.0.8の名前の修正
+        # seurat integrationを使ったことが分かるようにする — 通常クラスタリングと同じ命名規則に統一
     print('before changing 0.8')
-    meta_data <-  names(seurat_object@meta.data)
-    if  ('RNA_snn_res.0.8' %in% meta_data)  {
-      seurat_object@meta.data[,'seurat.RNA_snn_res.0.8'] <<- seurat_object@meta.data[,'RNA_snn_res.0.8']
-      seurat_object@meta.data <<- seurat_object@meta.data[, colnames(seurat_object@meta.data) != 'RNA_snn_res.0.8']
+    meta_data <- names(seurat_object@meta.data)
+    # FindClusters のデフォルトが生成するカラム名を探す
+    res.name <- NULL
+    for (candidate in c("integrated_snn_res.0.8", "RNA_snn_res.0.8")) {
+      if (candidate %in% meta_data) { res.name <- candidate; break }
+    }
+    if (!is.null(res.name)) {
+      new.res.name <- "seurat.pca.Louvain_res.0.8"
+      print(paste("Rename:", res.name, "->", new.res.name))
+      seurat_object@meta.data[, new.res.name] <<- seurat_object@meta.data[, res.name]
+      seurat_object@meta.data <<- seurat_object@meta.data[, colnames(seurat_object@meta.data) != res.name]
     }
     updatePCs_selection(30)
     updateUtilitiesReduction()
