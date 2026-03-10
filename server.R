@@ -10946,6 +10946,18 @@ observeEvent(input$uploadCell, {
         output_name <- "cellbender_output"
       }
       output_file <- file.path(output_dir, paste0(output_name, ".h5"))
+      filtered_file_check <- sub("\\.h5$", "_filtered.h5", output_file)
+
+      # Warn if previous results exist (completion monitor would detect them immediately)
+      if (file.exists(filtered_file_check)) {
+        session$sendCustomMessage("handler_finishLoader", "cellbender_loader")
+        cellbender_running(FALSE)
+        showNotification(
+          paste0("Output directory に既存の結果があります: ", basename(filtered_file_check),
+                 "\n出力先を変更するか、既存ファイルを削除してから再実行してください。"),
+          type = "warning", duration = NULL)
+        return()
+      }
 
       # Get parameters
       expected_cells <- input$CellBenderExpectedCells
