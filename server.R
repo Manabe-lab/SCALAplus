@@ -1090,7 +1090,9 @@ if (is.null(dim(seurat_data[]))){ # hastagのデータではseurat_data[[1]]に�
               hashtag.count <- seurat_data$`Antibody Capture`[,colnames(seurat_object[])]
             }
             if (!is.null(hashtag.count)) {
-              seurat_object[["HTO"]] <<- CreateAssayObject(counts = hashtag.count[(rowSums(hashtag.count)>length(hashtag.count)*0.2),])
+              hto_filter <- rowSums(hashtag.count) > ncol(hashtag.count) * 0.1
+              if (!any(hto_filter)) hto_filter <- rep(TRUE, nrow(hashtag.count))
+              seurat_object[["HTO"]] <<- CreateAssayObject(counts = hashtag.count[hto_filter, , drop = FALSE])
               print(paste("HTO assay created:", nrow(seurat_object[["HTO"]]), "hashtags"))
               showNotification(
                 paste0("Multiplexing data detected (", nrow(seurat_object[["HTO"]]), " hashtags). ",
@@ -1980,7 +1982,9 @@ tryCatch({
               hashtag.count <- seurat_data$`Antibody Capture`[,colnames(seurat_object[])]
             }
             if (!is.null(hashtag.count)) {
-              seurat_object[["HTO"]] <<- CreateAssayObject(counts = hashtag.count[(rowSums(hashtag.count)>length(hashtag.count)*0.2),])
+              hto_filter <- rowSums(hashtag.count) > ncol(hashtag.count) * 0.1
+              if (!any(hto_filter)) hto_filter <- rep(TRUE, nrow(hashtag.count))
+              seurat_object[["HTO"]] <<- CreateAssayObject(counts = hashtag.count[hto_filter, , drop = FALSE])
               print(paste("HTO assay created:", nrow(seurat_object[["HTO"]]), "hashtags"))
               showNotification(
                 paste0("Multiplexing data detected (", nrow(seurat_object[["HTO"]]), " hashtags). ",
