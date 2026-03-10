@@ -1331,7 +1331,7 @@ for (i in c(1:length(data_path))) {
           if (is.null(hashtag.count)) {
                 hashtag.count <- get(d_name)$`Antibody Capture`[,colnames(seurat_object[])]
           }
-      r[["HTO"]] <- CreateAssayObject(counts = hashtag.count[(rowSums(hashtag.count)>length(hashtag.count)*0.2),]) #countが1のものがある
+      r[["HTO"]] <- CreateAssayObject(counts = hashtag.count[(rowSums(hashtag.count)>length(hashtag.count)*0.2), , drop = FALSE]) #countが1のものがある
       assign(ident_names[i], r)
       print(ident_names[i])
       print(get(ident_names[i]))
