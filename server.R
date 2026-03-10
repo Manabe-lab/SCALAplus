@@ -25206,6 +25206,22 @@ withProgress(message = 'Calculating...', value = 0.1, {
 showNotification("This may take a long time...")
 incProgress(0.1)
 library(Rmagic)
+# Patch Rmagic magic.Seurat for SeuratObject v5 (slot → layer)
+assignInNamespace("magic.Seurat", function(data, genes = NULL, knn = 5, knn.max = NULL,
+    decay = 1, t = 3, npca = 100, solver = "exact", init = NULL,
+    t.max = 20, knn.dist.method = "euclidean", verbose = 1,
+    n.jobs = 1, seed = NULL, assay = NULL, ...) {
+  if (is.null(assay)) assay <- Seurat::DefaultAssay(object = data)
+  results <- magic(data = t(x = Seurat::GetAssayData(object = data,
+      layer = "data", assay = assay)), genes = genes, knn = knn,
+      knn.max = knn.max, decay = decay, t = t, npca = npca,
+      solver = solver, init = init, t.max = t.max, knn.dist.method = knn.dist.method,
+      verbose = verbose, n.jobs = n.jobs, seed = seed, ...)
+  assay_name <- paste0("MAGIC_", assay)
+  data[[assay_name]] <- Seurat::CreateAssayObject(data = t(x = as.matrix(x = results$result)))
+  Seurat::Tool(object = data) <- results[c("operator", "params")]
+  return(data)
+}, ns = "Rmagic")
 seurat_object <<- magic(seurat_object,
                     knn=input$MAGICknn, t=input$MAGICt)
 magic_assay <- paste0("MAGIC_", seurat_object@active.assay)
