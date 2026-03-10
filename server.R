@@ -1331,7 +1331,9 @@ for (i in c(1:length(data_path))) {
           if (is.null(hashtag.count)) {
                 hashtag.count <- get(d_name)$`Antibody Capture`[,colnames(seurat_object[])]
           }
-      r[["HTO"]] <- CreateAssayObject(counts = hashtag.count[(rowSums(hashtag.count)>length(hashtag.count)*0.2), , drop = FALSE]) #countが1のものがある
+      hto_filter <- rowSums(hashtag.count) > ncol(hashtag.count) * 0.1
+      if (!any(hto_filter)) hto_filter <- rep(TRUE, nrow(hashtag.count))  # 全行消える場合はフィルタなし
+      r[["HTO"]] <- CreateAssayObject(counts = hashtag.count[hto_filter, , drop = FALSE])
       assign(ident_names[i], r)
       print(ident_names[i])
       print(get(ident_names[i]))
