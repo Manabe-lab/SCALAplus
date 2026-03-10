@@ -11077,10 +11077,10 @@ observeEvent(input$uploadCell, {
           }
         }
 
-        showNotification("CellBender completed successfully!", type = "message", duration = 10)
-        showNotification(paste("Output file:", output_file), type = "message", duration = 10)
-        showNotification(paste("Filtered output:", filtered_file), type = "message", duration = 10)
-        showNotification("Load the filtered.h5 file in the Upload tab.", type = "message", duration = 15)
+        showNotification("CellBender completed successfully!", type = "message", duration = NULL)
+        showNotification(paste("Output file:", output_file), type = "message", duration = NULL)
+        showNotification(paste("Filtered output:", filtered_file), type = "message", duration = NULL)
+        showNotification("Load the filtered.h5 file in the Upload tab.", type = "warning", duration = NULL)
 
         # Clear output file path
         cellbender_output_file(NULL)
