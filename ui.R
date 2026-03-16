@@ -533,6 +533,14 @@ ui <- dashboardPage(
                                           tags$hr(),
                                     tags$br(),
                                        tags$h4("Integration with Seurat."),
+                                       selectInput("SeuratIntegrationMethod",
+                                         label = "Seurat integration method:",
+                                         choices = list(
+                                           "CCA (Canonical Correlation Analysis)" = "CCA",
+                                           "RPCA (Reciprocal PCA)" = "RPCA",
+                                           "Joint PCA" = "JPCA"
+                                         ),
+                                         selected = "CCA"),
                                        actionButton(inputId = "Seuratintegration", label = "Seurat-integration",class="btn btn-warning"),
 
                                 tags$hr(),

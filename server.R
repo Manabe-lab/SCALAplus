@@ -7008,54 +7008,81 @@ output$iRECODE_plot <- renderImage({
         showModal(modalDialog(div('Analysis in Progress. This operation may take several minutes, please wait...', style='color:#ffffff; background-color:#222d32;'), footer = NULL, style = 'font-size:20px; text-align:center;position:absolute;')) #position:absolute;top:50%;left:50%
         session$sendCustomMessage("handler_startLoader", c("input_loader", 20))
 
-print("Seurat integration....")
+print("Seurat integration (v5 IntegrateLayers)....")
+
+    # v5 assay チェック
+    if (!is_assay5(seurat_object)) {
+      showNotification("Error: Seurat integration requires v5 assay. Please reload data with v5 assay version.", type = "error", duration = 120)
+      return()
+    }
+
+    # 手法に応じた設定
+    int_method_name <- input$SeuratIntegrationMethod  # "CCA", "RPCA", "JPCA"
+    int_method <- switch(int_method_name,
+      "CCA"  = CCAIntegration,
+      "RPCA" = RPCAIntegration,
+      "JPCA" = JointPCAIntegration
+    )
+    reduc_suffix <- switch(int_method_name,
+      "CCA"  = "cca",
+      "RPCA" = "rpca",
+      "JPCA" = "jpca"
+    )
+    new_reduc_name <- paste0("seurat.", reduc_suffix)
+    new_umap_name  <- paste0("seurat.", reduc_suffix, ".umap")
+    new_umap_key   <- paste0("seurat.", reduc_suffix, ".UMAP_")
+    new_reduc_key  <- paste0("seurat.", reduc_suffix, "_")
+    showNotification(paste0("Seurat integration method: ", int_method_name))
+
+    # 既存 reduction の保存
     reduc_temp <- NULL
     if (input$KeepReduct) {
-#      if (('mnn' %in% names(seurat_object@reductions)) | ('pca' %in% names(seurat_object@reductions)) ) {
-       if (!is.null(seurat_object@reductions)) { # reductionsが空ではないときにする
+       if (!is.null(seurat_object@reductions)) {
       showNotification("前から存在するPCA等の次元圧縮データは残りますが、マージ前に解析していた場合は再度PCA等を行うように。UTILITY IDENTIY & ASSAYの最下段。", duration = 120)
     reduc_temp <- seurat_object@reductions
       }}
-# DefaultAssay(seurat_object) <<- "RNA"
-		object.list <- SplitObject(seurat_object, split.by = input$BatchIdent)
-		# normalize and identify variable features for each dataset independently
-		object.list <- lapply(X = object.list, FUN = function(x) {
-      DefaultAssay(x) <- "RNA"
-		    x <- NormalizeData(x)
-		    x <- FindVariableFeatures(x, selection.method = "vst", nfeatures = 2000)
-		})
 
+    # RNA assay で作業
+    DefaultAssay(seurat_object) <<- "RNA"
 
-		# select features that are repeatedly variable across datasets for integration
-		features <- SelectIntegrationFeatures(object.list = object.list)
-    print("Beore integration")
-		seurat_object.anchors <- FindIntegrationAnchors(object.list = object.list, anchor.features = features)
-		# this command creates an 'integrated' data assay
-		seurat_object <<- IntegrateData(anchorset = seurat_object.anchors)
-		# specify that we will perform downstream analysis on the corrected data note that the
-		# original unmodified data still resides in the 'RNA' assay
-    print("Done integration")
-		DefaultAssay(seurat_object) <<- "integrated"
-all.genes <- rownames(seurat_object)
-		# Run the standard workflow for visualization and clustering
-#    if (!is.null(seurat_object@reductions$pca)) {
-#        seurat_object@reductions$org.pca <<- seurat_object@reductions$pca
-#    } # integrateしていないPCAを残す
-		seurat_object <<- ScaleData(seurat_object, verbose = FALSE,features = all.genes)
-		seurat_object <<- RunPCA(seurat_object, npcs = 30, verbose = FALSE, reduction.name= "seurat.pca", reduction.key='seurat.PC_')
-		seurat_object <<- RunUMAP(seurat_object, reduction = "seurat.pca", dims = 1:30, reduction.name = "seurat.umap", reduction.key='seurat.UMAP_')
-		seurat_object <<- FindNeighbors(seurat_object, reduction = "seurat.pca", dims = 1:30)
-		seurat_object <<- FindClusters(seurat_object, algorithm = 4) # Leiden
-        # seurat integrationを使ったことが分かるようにする — 通常クラスタリングと同じ命名規則に統一
+    # v5: layers を batch identity で分割
+    seurat_object[["RNA"]] <<- split(seurat_object[["RNA"]], f = seurat_object@meta.data[[input$BatchIdent]])
+
+    # 正規化 → 変動遺伝子 → スケーリング → PCA
+    seurat_object <<- NormalizeData(seurat_object)
+    seurat_object <<- FindVariableFeatures(seurat_object, selection.method = "vst", nfeatures = 2000)
+    seurat_object <<- ScaleData(seurat_object, verbose = FALSE)
+    seurat_object <<- RunPCA(seurat_object, npcs = 30, verbose = FALSE)
+
+    print("Before IntegrateLayers")
+    # IntegrateLayers
+    seurat_object <<- IntegrateLayers(
+      object = seurat_object,
+      method = int_method,
+      orig.reduction = "pca",
+      new.reduction = new_reduc_name,
+      verbose = FALSE
+    )
+    print("Done IntegrateLayers")
+
+    # layers を再結合
+    seurat_object[["RNA"]] <<- JoinLayers(seurat_object[["RNA"]])
+
+    # downstream: UMAP + clustering
+    seurat_object <<- FindNeighbors(seurat_object, reduction = new_reduc_name, dims = 1:30)
+    seurat_object <<- FindClusters(seurat_object, algorithm = 4) # Leiden
+    seurat_object <<- RunUMAP(seurat_object, reduction = new_reduc_name, dims = 1:30,
+                              reduction.name = new_umap_name, reduction.key = new_umap_key)
+
+    # クラスタ列リネーム
     print('before changing 0.8')
     meta_data <- names(seurat_object@meta.data)
-    # FindClusters のデフォルトが生成するカラム名を探す
     res.name <- NULL
-    for (candidate in c("integrated_snn_res.0.8", "RNA_snn_res.0.8")) {
+    for (candidate in c("RNA_snn_res.0.8")) {
       if (candidate %in% meta_data) { res.name <- candidate; break }
     }
     if (!is.null(res.name)) {
-      new.res.name <- "seurat.pca.Leiden_res.0.8"
+      new.res.name <- paste0(new_reduc_name, ".Leiden_res.0.8")
       print(paste("Rename:", res.name, "->", new.res.name))
       seurat_object@meta.data[, new.res.name] <<- seurat_object@meta.data[, res.name]
       seurat_object@meta.data <<- seurat_object@meta.data[, colnames(seurat_object@meta.data) != res.name]
@@ -7064,18 +7091,9 @@ all.genes <- rownames(seurat_object)
     updatePCs_selection(30)
     updateUtilitiesReduction()
     updateUmapTypeChoices(names(seurat_object@reductions))
-   #  integrated PCAは分けて保存する
-#    seurat_object@reductions$seurat.pca <<- seurat_object@reductions$pca
 
-#    if (!is.null(seurat_object@reductions$org.pca)) {
-#      seurat_object@reductions$pca <<- seurat_object@reductions$org.pca
-#      seurat_object@reductions$org.pca <<- NULL
-#    } else {
-#      seurat_object@reductions$pca <<- NULL
-#    }
-
-    ReductionUse <<-  "seurat.pca"
-    updateUmapTypeChoices('seurat.umap')
+    ReductionUse <<- new_reduc_name
+    updateUmapTypeChoices(new_umap_name)
 
     if (!is.null(reduc_temp)) {
       # Restore old reductions, but skip newly computed ones
@@ -7090,13 +7108,11 @@ all.genes <- rownames(seurat_object)
       }
     }
 
-	#	DefaultAssay(seurat_object) <<- "RNA"
-
         seurat_object@meta.data$orig.ident <<- factor(seurat_object@meta.data$orig.ident)
 
- #       init_seurat_object  <<- seurat_object
-
-        showNotification("There is integrated slot for assay. Use RNA for DEG etc. You can change the active assay on the UTILITY OPTIONS tab.", duration = 300)
+        showNotification(paste0("Seurat v5 integration (", int_method_name, ") completed. ",
+          "Reduction: ", new_reduc_name, ", UMAP: ", new_umap_name, ". ",
+          "Use RNA assay for DEG etc."), duration = 300)
 
         #checking slots and enabling tabs
         if(is.null(seurat_object@meta.data))
