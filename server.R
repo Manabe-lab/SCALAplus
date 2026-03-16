@@ -966,6 +966,7 @@ observeEvent(input$uploadCountMatrixConfirm, {
         userId <- session$token
         user_dir <<- paste0("./usr_temp/", userId, metaD$my_project_name, gsub(pattern = "[ ]|[:]", replacement = "_", x = paste0("_", Sys.time())))
         dir.create(user_dir)
+        multi_prefix_mode <- FALSE
 
         if (upload10xRNAConfirmCount < input$upload10xRNAConfirm){
           showNotification("Uploading from your PC.")
@@ -1040,29 +1041,99 @@ observeEvent(input$uploadCountMatrixConfirm, {
               if (length(barcode_files) > 1) {
                 # Extract prefixes (everything before _barcodes.tsv.gz)
                 prefixes <- gsub("_barcodes\\.tsv\\.gz$", "", basename(barcode_files))
-                showNotification(paste0("Multiple datasets found: ", paste(prefixes, collapse=", "), ". Using first set: ", prefixes[1]), type = "warning")
+                showNotification(paste0("Multiple datasets found (", length(prefixes),
+                  " samples): ", paste(prefixes, collapse=", "),
+                  ". Merging with automatic orig.ident."), type = "message", duration = 30)
+                multi_prefix_mode <- TRUE
 
-                # Select first matching set
-                selected_prefix <- prefixes[1]
-                barcode_file <- barcode_files[1]
-                features_file <- features_files[grep(selected_prefix, features_files)[1]]
-                matrix_file <- matrix_files[grep(selected_prefix, matrix_files)[1]]
+                # Create subdirectories for each prefix with standard file names
+                for (k in seq_along(prefixes)) {
+                  sub_dir <- file.path(user_dir, prefixes[k])
+                  dir.create(sub_dir, recursive = TRUE)
+                  file.copy(barcode_files[k], file.path(sub_dir, "barcodes.tsv.gz"), overwrite = TRUE)
+                  feat_file <- features_files[grep(prefixes[k], features_files, fixed = TRUE)[1]]
+                  mat_file <- matrix_files[grep(prefixes[k], matrix_files, fixed = TRUE)[1]]
+                  file.copy(feat_file, file.path(sub_dir, "features.tsv.gz"), overwrite = TRUE)
+                  file.copy(mat_file, file.path(sub_dir, "matrix.mtx.gz"), overwrite = TRUE)
+                }
+                showNotification(paste0("Prepared ", length(prefixes), " sample directories for merging."))
               } else {
                 # Single dataset - use first match
                 barcode_file <- barcode_files[1]
                 features_file <- features_files[1]
                 matrix_file <- matrix_files[1]
+
+                # Copy with standard names for Read10X
+                file.copy(from = barcode_file, to = paste0(user_dir,"/barcodes.tsv.gz"), overwrite = TRUE)
+                file.copy(from = features_file, to = paste0(user_dir, "/features.tsv.gz"), overwrite = TRUE)
+                file.copy(from = matrix_file, to = paste0(user_dir,"/matrix.mtx.gz"), overwrite = TRUE)
+
+                showNotification(paste0("Copied files: ", basename(barcode_file), ", ", basename(features_file), ", ", basename(matrix_file)))
               }
-
-              # Copy with standard names for Read10X
-              file.copy(from = barcode_file, to = paste0(user_dir,"/barcodes.tsv.gz"), overwrite = TRUE)
-              file.copy(from = features_file, to = paste0(user_dir, "/features.tsv.gz"), overwrite = TRUE)
-              file.copy(from = matrix_file, to = paste0(user_dir,"/matrix.mtx.gz"), overwrite = TRUE)
-
-              showNotification(paste0("Copied files: ", basename(barcode_file), ", ", basename(features_file), ", ", basename(matrix_file)))
 
            } else {return()}
 
+        if (multi_prefix_mode) {
+          # === Multi-prefix merge mode ===
+          prefix_dirs <- list.dirs(user_dir, recursive = FALSE, full.names = TRUE)
+          prefix_names <- basename(prefix_dirs)
+
+          seurat_list <- list()
+          for (k in seq_along(prefix_dirs)) {
+            d <- Read10X(prefix_dirs[k])
+            # multiplexing対応
+            if (is.null(dim(d[]))) {
+              s <- CreateSeuratObject(counts = d$'Gene Expression',
+                     project = prefix_names[k],
+                     min.cells = as.numeric(minimum_cells),
+                     min.features = as.numeric(minimum_features))
+            } else {
+              s <- CreateSeuratObject(counts = d,
+                     project = prefix_names[k],
+                     min.cells = as.numeric(minimum_cells),
+                     min.features = as.numeric(minimum_features))
+            }
+            s@meta.data$orig.ident <- as.factor(prefix_names[k])
+            seurat_list[[k]] <- s
+            showNotification(paste0("Loaded: ", prefix_names[k],
+              " (", ncol(s), " cells)"))
+          }
+
+          # マージ
+          seurat_object <<- seurat_list[[1]]
+          if (length(seurat_list) > 1) {
+            seurat_object <<- merge(seurat_object, seurat_list[2:length(seurat_list)])
+          }
+          multip <<- FALSE
+
+          # v5 JoinLayers
+          if (is_assay5(seurat_object)) {
+            tryCatch({
+              seurat_object <<- JoinLayers(seurat_object)
+              showNotification("v5 assay's layers are joined.")
+            }, error = function(e) {
+              showNotification(paste("Error:", e), type = 'error', duration = 200)
+            })
+          }
+
+          seurat_object@meta.data$orig.ident <<- as.factor(seurat_object@meta.data$orig.ident)
+
+          session$sendCustomMessage("handler_startLoader", c("input_loader", 25))
+          session$sendCustomMessage("handler_startLoader", c("input_loader", 50))
+          initializeAfterDataLoad(organism)
+
+          if (organism == "human")
+            updateTextAreaInput(session, inputId = "findMarkersSignatureMembers",
+              placeholder = "PRG4\nTSPAN15\nCOL22A1\nHTRA4")
+
+          session$sendCustomMessage("handler_enableTabs", c("sidebarMenu", " FILE",
+            " QUALITY CONTROL", " DATA NORMALIZATION\n& SCALING",
+            " DOUBLETS' DETECTION", " SEURAT OBJECT STRUCTURE",
+            " UTILITY IDENTITY & ASSAY", " UTILITY DATA MANIPULATION",
+            " UTILITY CLUSTER"))
+
+        } else {
+          # === Single sample path (existing logic) ===
         seurat_data <- Read10X(user_dir)
         # print(seurat_data)
 
@@ -1133,6 +1204,7 @@ if (is.null(dim(seurat_data[]))){ # hastagのデータではseurat_data[[1]]に�
           updateTextAreaInput(session, inputId="findMarkersSignatureMembers", placeholder = "PRG4\nTSPAN15\nCOL22A1\nHTRA4")
 
         session$sendCustomMessage("handler_enableTabs", c("sidebarMenu", " FILE",  " QUALITY CONTROL", " DATA NORMALIZATION\n& SCALING", " DOUBLETS' DETECTION", " SEURAT OBJECT STRUCTURE",  " UTILITY IDENTITY & ASSAY", " UTILITY DATA MANIPULATION"," UTILITY CLUSTER"))
+        } # end single sample path
       }, error = function(e) {
         print(paste("Error :  ", e))
       showNotification(paste("Error :  ", e), type = 'error', duration=200)

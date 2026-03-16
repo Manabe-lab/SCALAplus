@@ -251,6 +251,12 @@ ui <- dashboardPage(
                                        tags$h3("OR use 10x files on the server"),
 
                                         shinyDirButton('local10XFolder', label='Choose 10X folder on server', title='Select 10X file folder', multiple=FALSE),
+                                       tags$p(tags$small(
+                                         "Supports prefixed 10X files (e.g., GEO downloads). ",
+                                         "If multiple sample sets are found (e.g., GSM*_barcodes.tsv.gz, GSM*_features.tsv.gz, GSM*_matrix.mtx.gz), ",
+                                         "all samples will be automatically loaded and merged with orig.ident set to each prefix.",
+                                         style = "color: #999;"
+                                       )),
 
                                             tags$hr(),
                                        actionButton(inputId = "uploadLocal10xFolderConfirm", label = "Load from server 10x folder",class="btn btn-warning"),
