@@ -26647,8 +26647,6 @@ content = function(file){
           plot_cols <- setNames(
             mapply(function(c, a) scales::alpha(c, a), unname(cols), alpha_vals, USE.NAMES = FALSE),
             names(cols))
-          reduc_data$.highlight_alpha <- ifelse(
-            reduc_data[[input$umapColorBy]] %in% hl_clusters, fg_alpha, bg_alpha)
           # Border alpha: separately controlled
           border_bg_alpha <- base_alpha * as.numeric(input$umapHighlightBorderOpacity)
           outline_alpha <- ifelse(names(outline_cols) %in% hl_clusters, fg_alpha, border_bg_alpha)
@@ -26657,7 +26655,6 @@ content = function(file){
             names(outline_cols))
         } else {
           plot_cols <- scales::alpha(cols, base_alpha)
-          reduc_data$.highlight_alpha <- base_alpha
         }
 
         session$sendCustomMessage("handler_startLoader", c("dim_red2_loader", 50))
@@ -26767,9 +26764,8 @@ if (input$umapReverseY){
 
             p_sub_neb[[x]] <-  ggplot(data=reduc_sub, aes_string(x=colnames(reduc_sub)[input$umapX], y=colnames(reduc_sub)[input$umapY],
                colour =input$umapColorBy, fill=input$umapColorBy)) & #outlineとfillを同じに
-            geom_point(aes(alpha = .highlight_alpha), size= as.numeric(input$umapDotSize), shape=21, stroke=as.numeric(input$umapDotBorder))&
-            scale_alpha_identity() &
-            scale_fill_manual(values = cols) &
+            geom_point(size= as.numeric(input$umapDotSize), shape=21, stroke=as.numeric(input$umapDotBorder))&
+            scale_fill_manual(values = plot_cols) &
             scale_colour_manual(values = outline_cols) &
             scale_size() &
             theme_classic() &
@@ -26808,9 +26804,8 @@ if (input$umapReverseY){
 
           p <- ggplot(data=reduc_data, aes_string(x=colnames(reduc_data)[input$umapX], y=colnames(reduc_data)[input$umapY],
                           colour =input$umapColorBy, fill=input$umapColorBy)) &
-            geom_point(aes(alpha = .highlight_alpha), size= as.numeric(input$umapDotSize), shape=21, stroke=as.numeric(input$umapDotBorder))&
-            scale_alpha_identity() &
-            scale_fill_manual(values = cols)&
+            geom_point(size= as.numeric(input$umapDotSize), shape=21, stroke=as.numeric(input$umapDotBorder))&
+            scale_fill_manual(values = plot_cols)&
             scale_colour_manual(values = outline_cols) &
             scale_size() &
             theme_classic() &
