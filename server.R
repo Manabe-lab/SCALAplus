@@ -9290,7 +9290,7 @@ output$downloadAugurPlot <- downloadHandler(
   },
   content = function(file) {
     if (!is.null(augur_results$plot)) {
-      pdf(file, width = 8, height = 6)
+      cairo_pdf(file, width = 8, height = 6)
       print(augur_results$plot)
       dev.off()
     }
@@ -12815,7 +12815,7 @@ tryCatch({
     content = function(file) {
       if (!is.null(pcCovResults$analysis_results)) {
         source("Rfunc/pc_covariate_analysis.R")
-        pdf(file, width = 10, height = 8)
+        cairo_pdf(file, width = 10, height = 8)
         print(plot_partial_r2_heatmap(pcCovResults$analysis_results))
         dev.off()
       }
@@ -12829,7 +12829,7 @@ tryCatch({
     content = function(file) {
       if (!is.null(pcCovResults$analysis_results)) {
         source("Rfunc/pc_covariate_analysis.R")
-        pdf(file, width = 10, height = 8)
+        cairo_pdf(file, width = 10, height = 8)
         print(plot_pvalue_heatmap(pcCovResults$analysis_results))
         dev.off()
       }
@@ -12843,7 +12843,7 @@ tryCatch({
     content = function(file) {
       if (!is.null(pcCovResults$analysis_results)) {
         source("Rfunc/pc_covariate_analysis.R")
-        pdf(file, width = 8, height = 6)
+        cairo_pdf(file, width = 8, height = 6)
         print(plot_pc_vs_covariate(
           obj = seurat_object,
           reduction_name = pcCovResults$reduction_name,
@@ -13005,17 +13005,17 @@ tryCatch({
       }
 
       # Save heatmaps
-      pdf(file.path(temp_dir, "partial_r2_heatmap.pdf"), width = 10, height = 8)
+      cairo_pdf(file.path(temp_dir, "partial_r2_heatmap.pdf"), width = 10, height = 8)
       print(plot_partial_r2_heatmap(pcCovResults$analysis_results))
       dev.off()
 
-      pdf(file.path(temp_dir, "pvalue_heatmap.pdf"), width = 10, height = 8)
+      cairo_pdf(file.path(temp_dir, "pvalue_heatmap.pdf"), width = 10, height = 8)
       print(plot_pvalue_heatmap(pcCovResults$analysis_results))
       dev.off()
 
       # Save individual plots for each covariate
       for (cov in pcCovResults$selected_covariates) {
-        pdf(file.path(temp_dir, paste0("plots_", cov, ".pdf")), width = 12, height = 8)
+        cairo_pdf(file.path(temp_dir, paste0("plots_", cov, ".pdf")), width = 12, height = 8)
 
         # Create multi-panel plot
         n_pcs <- length(pcCovResults$analysis_results$per_pc_stats$pc)
@@ -17405,7 +17405,7 @@ paste0(gl_geneS, '_vln.pdf')
 },
   content =  function(file) {
     print(global_vln)
-    ggsave('plot.pdf', height=input$vlnHeight/72, width=input$vlnWidth/72)
+    ggsave('plot.pdf', height=input$vlnHeight/72, width=input$vlnWidth/72, device = cairo_pdf)
     file.copy("plot.pdf", file)
         file.remove("plot.pdf")
         }
@@ -17464,7 +17464,7 @@ paste0(gl_geneS, '.pdf')
 #Featureplotでglobal変数を作る
   content =  function(file) {
     print(gl_feature)
-    ggsave('plot.pdf', height=input$findMarkersHeight/72, width=input$findMarkersWidth/72)
+    ggsave('plot.pdf', height=input$findMarkersHeight/72, width=input$findMarkersWidth/72, device = cairo_pdf)
     file.copy("plot.pdf", file)
     file.remove("plot.pdf")
         }
@@ -17565,7 +17565,7 @@ output$barplotdownloaderPDF <- downloadHandler(
   filename = paste0("Barplot-", input$clusterGroupBy, ".pdf"),
   content =  function(file) {
     print(global_barplot)
-    ggsave('plot.pdf', height=input$barplotHeight/72, width=input$barplotWidth/72)
+    ggsave('plot.pdf', height=input$barplotHeight/72, width=input$barplotWidth/72, device = cairo_pdf)
     file.copy("plot.pdf", file)
         file.remove("plot.pdf")
         }
@@ -17587,7 +17587,7 @@ output$treeplotdownloaderPDF <- downloadHandler(
   filename = paste0("treeplot-", input$treeGroupBy, ".pdf"),
   content =  function(file) {
     print(global_treeplot)
-    ggsave('plot.pdf', height=input$treeplotHeight/72, width=input$treeplotWidth/72)
+    ggsave('plot.pdf', height=input$treeplotHeight/72, width=input$treeplotWidth/72, device = cairo_pdf)
     file.copy("plot.pdf", file)
         file.remove("plot.pdf")
         }
@@ -17607,7 +17607,7 @@ output$trajectoryCurvedownloaderPDF <- downloadHandler(
   filename = "TrajectoryCurve.pdf",
   content =  function(file) {
     print(gl_plot_C)
-    ggsave('plot.pdf', height = input$trajectoryHeight/72, width = input$trajectoryWidth/72)
+    ggsave('plot.pdf', height = input$trajectoryHeight/72, width = input$trajectoryWidth/72, device = cairo_pdf)
     file.copy("plot.pdf", file)
         file.remove("plot.pdf")
         }
@@ -17628,7 +17628,7 @@ output$trajectoryStructuredownloaderPDF <- downloadHandler(
   filename = "TrajectoryStructure.pdf",
   content =  function(file) {
     print(gl_plot_D)
-    ggsave('plot.pdf', height = input$trajectoryHeight/72, width = input$trajectoryWidth/72)
+    ggsave('plot.pdf', height = input$trajectoryHeight/72, width = input$trajectoryWidth/72, device = cairo_pdf)
     file.copy("plot.pdf", file)
         file.remove("plot.pdf")
         }
@@ -17649,7 +17649,7 @@ output$trajectoryTimedownloaderPDF <- downloadHandler(
   filename = paste0(gl_lineage, "_TrajectoryPseudoTime.pdf"),
   content =  function(file) {
     print(gl_plot_P)
-    ggsave('plot.pdf', height = input$trajectoryHeight/72, width = input$trajectoryWidth/72)
+    ggsave('plot.pdf', height = input$trajectoryHeight/72, width = input$trajectoryWidth/72, device = cairo_pdf)
     file.copy("plot.pdf", file)
         file.remove("plot.pdf")
         }
@@ -17733,7 +17733,7 @@ output$featureHeatmapDownloadPDF <- downloadHandler(
       }
 
       incProgress(0.4, detail = "Saving PDF file...")
-      pdf(file, height = input$heatmapHeight2/72, width = input$heatmapWidth2/72)
+      cairo_pdf(file, height = input$heatmapHeight2/72, width = input$heatmapWidth2/72)
       grid::grid.newpage()
       grid::grid.draw(feature_heatmap_plot$gtable)
       dev.off()
@@ -17748,7 +17748,7 @@ output$bestliganddownloaderPDF <- downloadHandler(
   filename = "BestLigand.pdf",
   content =  function(file) {
     print(p_best_ligand)
-    ggsave('plot.pdf', height = input$ligandY/72, width = input$ligandX/72)
+    ggsave('plot.pdf', height = input$ligandY/72, width = input$ligandX/72, device = cairo_pdf)
     file.copy("plot.pdf", file)
         file.remove("plot.pdf")
         }
@@ -17758,7 +17758,7 @@ output$priorauprdownloaderPDF <- downloadHandler(
   filename = "PrioritizedLigandActivity.pdf",
   content =  function(file) {
     print(p_prior_ligand_aupr)
-    ggsave('plot.pdf', height = input$priorY/72, width = input$priorX/72)
+    ggsave('plot.pdf', height = input$priorY/72, width = input$priorX/72, device = cairo_pdf)
     file.copy("plot.pdf", file)
         file.remove("plot.pdf")
         }
@@ -17768,7 +17768,7 @@ output$priordotplotdownloaderPDF <- downloadHandler(
   filename = "PrioritizedLigandsExpressionDotplot.pdf",
   content =  function(file) {
     print(rotated_dotplot)
-    ggsave('plot.pdf', height = input$priorY/72, width = input$priorX/72)
+    ggsave('plot.pdf', height = input$priorY/72, width = input$priorX/72, device = cairo_pdf)
     file.copy("plot.pdf", file)
         file.remove("plot.pdf")
         }
@@ -17778,7 +17778,7 @@ output$priorliganddownloaderPDF <- downloadHandler(
   filename = "PrioritizedLigandsDifferentialExpression.pdf",
   content =  function(file) {
     print(p_prior_ligand_lfc)
-    ggsave('plot.pdf', height = input$priorY/72, width = input$priorX/72)
+    ggsave('plot.pdf', height = input$priorY/72, width = input$priorX/72, device = cairo_pdf)
     file.copy("plot.pdf", file)
         file.remove("plot.pdf")
         }
@@ -17789,7 +17789,7 @@ output$priorliganddownloaderPDF <- downloadHandler(
   filename = "ReceptorGenes.pdf",
   content =  function(file) {
     print(p_prior_ligand_lfc)
-    ggsave('plot.pdf', height = input$LRY/72, width = input$LRX/72)
+    ggsave('plot.pdf', height = input$LRY/72, width = input$LRX/72, device = cairo_pdf)
     file.copy("plot.pdf", file)
         file.remove("plot.pdf")
         }
@@ -17799,7 +17799,7 @@ output$LRdownloaderPDF <- downloadHandler(
   filename = "Ligands-TargetGenes.pdf",
   content =  function(file) {
     print(p_ligand_target_network)
-    ggsave('plot.pdf', height = input$LRY/72, width = input$LRX/72)
+    ggsave('plot.pdf', height = input$LRY/72, width = input$LRX/72, device = cairo_pdf)
     file.copy("plot.pdf", file)
         file.remove("plot.pdf")
         }
@@ -17809,7 +17809,7 @@ output$ligandauprdownloaderPDF <- downloadHandler(
   filename = "LigandsActivity.pdf",
   content =  function(file) {
     print(p_ligand_aupr)
-    ggsave('plot.pdf', height = input$LRY/72, width = input$LRX/72)
+    ggsave('plot.pdf', height = input$LRY/72, width = input$LRX/72, device = cairo_pdf)
     file.copy("plot.pdf", file)
         file.remove("plot.pdf")
         }
@@ -17820,7 +17820,7 @@ output$DEdotplotGdownloaderPDF <- downloadHandler(
   filename = "LigandDEdotplot.pdf",
   content =  function(file) {
     print(DE_dotplot)
-    ggsave('plot.pdf', height = input$priorY/72, width = input$priorX/72)
+    ggsave('plot.pdf', height = input$priorY/72, width = input$priorX/72, device = cairo_pdf)
     file.copy("plot.pdf", file)
         file.remove("plot.pdf")
         }
@@ -17831,7 +17831,7 @@ output$mushroomdownloaderPDF <- downloadHandler(
   filename = "Mushroom.pdf",
   content =  function(file) {
     print(p_mushroom)
-    ggsave('plot.pdf', height = input$LRY/72, width = input$LRX/72)
+    ggsave('plot.pdf', height = input$LRY/72, width = input$LRX/72, device = cairo_pdf)
     file.copy("plot.pdf", file)
         file.remove("plot.pdf")
         }
@@ -17841,7 +17841,7 @@ output$priorliganddownloaderPDF <- downloadHandler(
   filename = "LigandExpression_between_conditions.pdf",
   content =  function(file) {
     print(DE_dotplot)
-    ggsave('plot.pdf', height = input$LRY/72, width = input$LRX/72)
+    ggsave('plot.pdf', height = input$LRY/72, width = input$LRX/72, device = cairo_pdf)
     file.copy("plot.pdf", file)
         file.remove("plot.pdf")
         }
@@ -22257,7 +22257,7 @@ output$circosdownloaderPDF <- downloadHandler(
         },
         "pdf" = {
           print("Creating PDF device")
-          pdf(temp_file, height = input$circosR/72, width = input$circosR/72)
+          cairo_pdf(temp_file, height = input$circosR/72, width = input$circosR/72)
         }
       )
       
@@ -22513,7 +22513,7 @@ groupSize <- as.numeric(table(cellchat@idents))
 
 while (!is.null(dev.list()))  dev.off()
 
-pdf("cellchat/aggregated_network.pdf", width = 1000/72, height = 500/72)
+cairo_pdf("cellchat/aggregated_network.pdf", width = 1000/72, height = 500/72)
 par(mfrow = c(1,2), xpd=TRUE)
 p1 <- netVisual_circle(cellchat@net$count, vertex.weight = groupSize, weight.scale = T, label.edge= F,
                      title.name = "Number of interactions")
@@ -22524,7 +22524,7 @@ print(p2)
 dev.off()
 
           mflow_row <- trunc(length(ident_levels)/4) + 1
-          pdf("cellchat/individual_cell_network.pdf", width = 1200/72,  height = mflow_row*300/72)
+          cairo_pdf("cellchat/individual_cell_network.pdf", width = 1200/72,  height = mflow_row*300/72)
           mat <- cellchat@net$weight
           par(mfrow = c(mflow_row,4), xpd=TRUE)
           for (i in 1:nrow(mat)) {
@@ -22539,7 +22539,7 @@ dev.off()
 
           for (i in cellchat@netP$pathways) {
             pathways.show <- i
-            pdf(paste0("cellchat/chord_diagram/", i,'-chord.pdf') ,width = 600/72, height = 600/72)
+            cairo_pdf(paste0("cellchat/chord_diagram/", i,'-chord.pdf') ,width = 600/72, height = 600/72)
             par(mfrow=c(1,1))
             netVisual_aggregate(cellchat, signaling = pathways.show, layout = "chord")
             dev.off()
@@ -22547,7 +22547,7 @@ dev.off()
 
           # Heatmap
 
-          pdf("cellchat/heatmap.pdf")
+          cairo_pdf("cellchat/heatmap.pdf")
           gg <- netVisual_heatmap(cellchat, measure="weight", color.heatmap = "Oranges", font.size=14, font.size.title=20)
           print(gg)
           dev.off()
@@ -22564,14 +22564,14 @@ while (!is.null(dev.list()))  dev.off()
           incProgress(0.2)
 
           for (i in cellchat@netP$pathways) {
-              pdf(paste0('cellchat/centrality/', i,'_centrality-score.pdf'),width =8, height =3)
+              cairo_pdf(paste0('cellchat/centrality/', i,'_centrality-score.pdf'),width =8, height =3)
           netAnalysis_signalingRole_network(cellchat, signaling =i, font.size = 10,width = 8, height = 3,
             color.heatmap = "Oranges")
           dev.off()
               }
 
           for (i in cellchat@netP$pathways) {
-          pdf(paste0('cellchat/vln/', i,'_vln.pdf'),width = 600/72, height = 600/72)
+          cairo_pdf(paste0('cellchat/vln/', i,'_vln.pdf'),width = 600/72, height = 600/72)
           gg <- plotGeneExpression(cellchat, signaling = i)
           print(gg)
           dev.off()
@@ -22860,9 +22860,9 @@ library(ComplexHeatmap)
 g1 <- compareInteractions(cellchat, show.legend = F, group = c(1,2)) # legendをTrueに
 g2 <- compareInteractions(cellchat, show.legend = F, group = c(1,2), measure = "weight")
 print(wrap_plots(g1, g2))
-ggsave("cellchat/interaction_number_strength.pdf", width = 400/72, height = 200/72)
+ggsave("cellchat/interaction_number_strength.pdf", width = 400/72, height = 200/72, device = cairo_pdf)
 
-pdf("cellchat/differenetial_interaction.pdf", width = 1200/72,  height = 600/72)
+cairo_pdf("cellchat/differenetial_interaction.pdf", width = 1200/72,  height = 600/72)
 par(mfrow = c(1,2), xpd=TRUE) #以下のようにしないと横並びのグラフにならなかった。
 g1 <- netVisual_diffInteraction(cellchat, weight.scale = T)
 g2 <- netVisual_diffInteraction(cellchat, weight.scale = T, measure = "weight")
@@ -22876,7 +22876,7 @@ g2 <- netVisual_heatmap(cellchat, measure = "weight")
 print(wrap_plots(grid.grabExpr(draw(g1)), grid.grabExpr(draw(g2))) +
   plot_annotation(title = paste0('Increased in ', split_group[2], ' vs. ', split_group[1]),
     theme = theme(plot.title = element_text(size = 18), hjust = 0.5)))
-ggsave("cellchat/Heatmap_differenetial_interaction.pdf",  width = 800/72,  height = 400/72)
+ggsave("cellchat/Heatmap_differenetial_interaction.pdf",  width = 800/72,  height = 400/72, device = cairo_pdf)
 
 
 common_sig_pathway <- intersect(cellchat.1@netP$pathways, cellchat.2@netP$pathways)
@@ -22884,7 +22884,7 @@ common_sig_pathway <- intersect(cellchat.1@netP$pathways, cellchat.2@netP$pathwa
 if (length(common_sig_pathway) >1) {
 for (x in common_sig_pathway) {
 #png(paste0("cellchat/chord_diagram/", x, ".png"), width = 1200,  height = 600)
-pdf(file =paste0("cellchat/circle/", x, ".pdf"))
+cairo_pdf(file =paste0("cellchat/circle/", x, ".pdf"))
 weight.max <- getMaxWeight(object.list, slot.name = c("netP"), attribute = x) # control the edge weights across different datasets
 par(mfrow = c(1,2), xpd=TRUE)
 for (i in 1:length(object.list)) {
@@ -22896,7 +22896,7 @@ dev.off()
 
 incProgress(0.1)
 
-pdf("cellchat/Circle_number_interaction.pdf", width = 1200/72,  height = 600/72)
+cairo_pdf("cellchat/Circle_number_interaction.pdf", width = 1200/72,  height = 600/72)
 weight.max <- getMaxWeight(object.list, attribute = c("idents","count"))
 par(mfrow = c(1,2), xpd=TRUE)
 for (i in 1:length(object.list)) {
@@ -22906,7 +22906,7 @@ for (i in 1:length(object.list)) {
 dev.off()
 
 
-pdf("cellchat/Circle_number_interaction.pdf", width = 1200/72,  height = 600/72)
+cairo_pdf("cellchat/Circle_number_interaction.pdf", width = 1200/72,  height = 600/72)
 weight.max <- getMaxWeight(object.list, attribute = c("idents","count"))
 par(mfrow = c(1,2), xpd=TRUE)
 for (i in 1:length(object.list)) {
@@ -22916,7 +22916,7 @@ for (i in 1:length(object.list)) {
 dev.off()
 
 
-pdf("cellchat/Circle_number_strength.pdf", width = 1200/72,  height = 600/72)
+cairo_pdf("cellchat/Circle_number_strength.pdf", width = 1200/72,  height = 600/72)
 weight.max <- getMaxWeight(object.list, attribute = c("idents","weight"))
 par(mfrow = c(1,2), xpd=TRUE)
 for (i in 1:length(object.list)) {
@@ -22933,11 +22933,11 @@ for (i in 1:length(object.list)) {
   gg[[i]] <- netAnalysis_signalingRole_scatter(object.list[[i]], title = split_group[i], weight.MinMax = weight.MinMax)
 }
 print(patchwork::wrap_plots(plots = gg))
-ggsave("cellchat/DotPlot_interaction_strength.pdf", width = 1000/72,  height = 500/72)
+ggsave("cellchat/DotPlot_interaction_strength.pdf", width = 1000/72,  height = 500/72, device = cairo_pdf)
 
 
 for (x in cell_types){
-pdf(paste0("cellchat/signaling_change/", x, "_Signaling_change.pdf"), width = 600/72,  height = 500/72)
+cairo_pdf(paste0("cellchat/signaling_change/", x, "_Signaling_change.pdf"), width = 600/72,  height = 500/72)
     print(x)
 gg1 <- netAnalysis_signalingChanges_scatter(cellchat, idents.use = x) +
         ggtitle(paste0("Signaling changes of ", x, "\nIncreased in ", split_group[2], " vs. ", split_group[1]))
@@ -22953,7 +22953,7 @@ cellchat <- computeNetSimilarityPairwise(cellchat, type = "functional")
 cellchat <- netEmbedding(cellchat, type = "functional")
 cellchat <- netClustering(cellchat, type = "functional")
 print(netVisual_embeddingPairwise(cellchat, type = "functional", label.size = 3.5))
-ggsave("cellchat/similar_groups_functionally.pdf", width = 600/72,  height = 500/72)
+ggsave("cellchat/similar_groups_functionally.pdf", width = 600/72,  height = 500/72, device = cairo_pdf)
 
 
 cellchat <- computeNetSimilarityPairwise(cellchat, type = "structural")
@@ -22962,18 +22962,18 @@ cellchat <- netClustering(cellchat, type = "structural")
 # Visualization in 2D-space
 
 print(netVisual_embeddingPairwise(cellchat, type = "structural", label.size = 3.5))
-ggsave("cellchat/similar_groups_structurally.pdf", width = 600/72,  height = 500/72)
+ggsave("cellchat/similar_groups_structurally.pdf", width = 600/72,  height = 500/72, device = cairo_pdf)
 
 print(netVisual_embeddingPairwiseZoomIn(cellchat, type = "structural", nCol = 2))
-ggsave("cellchat/similar_groups_structurally_clusters.pdf", width = 600/72,  height = 600/72)
+ggsave("cellchat/similar_groups_structurally_clusters.pdf", width = 600/72,  height = 600/72, device = cairo_pdf)
 
 
-pdf("cellchat/pathway_distance_functional.pdf", width = 400/72,  height = 400/72)
+cairo_pdf("cellchat/pathway_distance_functional.pdf", width = 400/72,  height = 400/72)
 rankSimilarity(cellchat, type = "functional")
 dev.off()
 #> Compute the distance of signaling networks between datasets 1 2
 
-pdf("cellchat/pathway_distance_structural.pdf", width = 400/72,  height = 400/72)
+cairo_pdf("cellchat/pathway_distance_structural.pdf", width = 400/72,  height = 400/72)
 rankSimilarity(cellchat, type = "structural")
 dev.off()
 
@@ -22984,7 +22984,7 @@ incProgress(0.2)
 gg1 <- rankNet(cellchat, mode = "comparison", measure = "weight", sources.use = NULL, targets.use = NULL, stacked = T, do.stat = TRUE)
 gg2 <- rankNet(cellchat, mode = "comparison", measure = "weight", sources.use = NULL, targets.use = NULL, stacked = F, do.stat = TRUE)
 gg1 + gg2
-ggsave("cellchat/information_flow.pdf", width = 600/72,  height = 500/72)
+ggsave("cellchat/information_flow.pdf", width = 600/72,  height = 500/72, device = cairo_pdf)
 while (!is.null(dev.list()))  dev.off()
 
 print('heatmap')
@@ -22998,7 +22998,7 @@ p2 <- netAnalysis_signalingRole_heatmap(object.list[[i+1]], pattern = "outgoing"
 # complex heatmapはこのようにする
 #png("cellchat/outgoing_signaling_pattern.png", width = 850,  height =500)
 wrap_plots(grid.grabExpr(draw(p1)),grid.grabExpr(draw(p2)))
-ggsave("cellchat/outgoing_signaling_pattern.pdf", width = 850/72,  height = 500/72)
+ggsave("cellchat/outgoing_signaling_pattern.pdf", width = 850/72,  height = 500/72, device = cairo_pdf)
 
 i = 1
 # combining all the identified signaling pathways from different datasets
@@ -23010,7 +23010,7 @@ p2 <- netAnalysis_signalingRole_heatmap(object.list[[i+1]], pattern = "incoming"
 # complex heatmapはこのようにする
 #png("cellchat/ingoing_signaling_pattern.png", width = 850,  height =500)
 wrap_plots(grid.grabExpr(draw(p1)),grid.grabExpr(draw(p2)))
-ggsave("cellchat/ingoing_signaling_pattern.pdf", width = 850/72,  height = 500/72)
+ggsave("cellchat/ingoing_signaling_pattern.pdf", width = 850/72,  height = 500/72, device = cairo_pdf)
 while (!is.null(dev.list()))  dev.off()
 
 
@@ -23024,7 +23024,7 @@ p2 <- netAnalysis_signalingRole_heatmap(object.list[[i+1]], pattern = "all", sig
 # complex heatmapはこのようにする
 #png("cellchat/overall_signaling_pattern.png", width = 850,  height =500)
 wrap_plots(grid.grabExpr(draw(p1)),grid.grabExpr(draw(p2)))
-ggsave("cellchat/overall_signaling_pattern.pdf", width = 850/72,  height = 500/72)
+ggsave("cellchat/overall_signaling_pattern.pdf", width = 850/72,  height = 500/72, device = cairo_pdf)
 while (!is.null(dev.list()))  dev.off()
 
 incProgress(0.1)
@@ -23033,7 +23033,7 @@ print('circle')
 if (length(common_sig_pathway) >1) {
 for (x in common_sig_pathway) {
 #png(paste0("cellchat/chord_diagram/", x, ".png"), width = 1200,  height = 600)
-pdf(file =paste0("cellchat/circle/", x, ".pdf"))
+cairo_pdf(file =paste0("cellchat/circle/", x, ".pdf"))
 weight.max <- getMaxWeight(object.list, slot.name = c("netP"), attribute = x) # control the edge weights across different datasets
 par(mfrow = c(1,2), xpd=TRUE)
 for (i in 1:length(object.list)) {
@@ -23063,7 +23063,7 @@ for (i in 1:length(object.list)) {
 print( wrap_plots(grid.grabExpr(draw(ht[[1]])), grid.grabExpr(draw(ht[[2]]))) +
   plot_annotation(title = paste0(x, ' interaction strength'), theme = theme(plot.title = element_text(size = 18)))
   )
-ggsave(paste0("cellchat/comparison_heatmap/", x, ".pdf"), width = 850/72,  height = 400/72)
+ggsave(paste0("cellchat/comparison_heatmap/", x, ".pdf"), width = 850/72,  height = 400/72, device = cairo_pdf)
 
 # save matrix
 
@@ -23088,7 +23088,7 @@ write.table(cellchat@net[[i]]$weight,
 }
 print(wrap_plots(grid.grabExpr(draw(ht[[1]])), grid.grabExpr(draw(ht[[2]]))) +  plot_annotation(title = paste0(x, ' interaction strength'), theme = theme(plot.title = element_text(size = 18)))
   )
-ggsave(paste0("cellchat/comparison_heatmap/", x, ".pdf"), width = 850/72,  height = 400/72)
+ggsave(paste0("cellchat/comparison_heatmap/", x, ".pdf"), width = 850/72,  height = 400/72, device = cairo_pdf)
 
 }) # tryCatchの終わり
         }}
@@ -23101,7 +23101,7 @@ print('chord')
 # Chord diagram
 if (length(common_sig_pathway) >1) {
     for (x in common_sig_pathway) {
-pdf(paste0("cellchat/chord/", x, ".pdf"), width = 1000/72,  height = 600/72 )
+cairo_pdf(paste0("cellchat/chord/", x, ".pdf"), width = 1000/72,  height = 600/72 )
         par(mfrow = c(1,2), xpd=TRUE)
 for (i in 1:length(object.list)) {
   netVisual_aggregate(object.list[[i]], signaling = x, layout = "chord",
@@ -23118,7 +23118,7 @@ g1 <- netVisual_heatmap(cellchat.1, measure="weight", color.heatmap = c('#ffffff
 g2 <- netVisual_heatmap(cellchat.2, measure="weight", color.heatmap = c('#ffffff',col_fun( max(cellchat.2@net$weight))),
                  font.size=12, font.size.title=14, title.name = paste0("Interaction strength of ",split_group[2]))
 print(wrap_plots(grid.grabExpr(draw(g1)), grid.grabExpr(draw(g2)))+  plot_annotation(title = 'Total interaction strength', theme = theme(plot.title = element_text(size = 18))))
-ggsave(paste0("cellchat/communication_weight_heatmap.pdf"), width = 850/72,  height = 400/72)
+ggsave(paste0("cellchat/communication_weight_heatmap.pdf"), width = 850/72,  height = 400/72, device = cairo_pdf)
 
           output$heatmap_g <- renderPlot({
             print(wrap_plots(grid.grabExpr(draw(g1)), grid.grabExpr(draw(g2))))
@@ -23134,7 +23134,7 @@ g1 <- netVisual_heatmap(cellchat.1, measure="count", color.heatmap = c('#ffffff'
 g2 <- netVisual_heatmap(cellchat.2, measure="count", color.heatmap = c('#ffffff',col_fun( max(cellchat.2@net$count))),
                  font.size=12, font.size.title=14, title.name = split_group[2])
 print(wrap_plots(grid.grabExpr(draw(g1)), grid.grabExpr(draw(g2))) +  plot_annotation(title = 'Total interaction number', theme = theme(plot.title = element_text(size = 18))))
-ggsave(paste0("cellchat/communication_number_heatmap.pdf"), width = 850/72,  height = 400/72)
+ggsave(paste0("cellchat/communication_number_heatmap.pdf"), width = 850/72,  height = 400/72, device = cairo_pdf)
 
 
 }) # progressの最後
@@ -23285,7 +23285,7 @@ g1 <- netVisual_bubble(cellchat, sources.use =  match(input$cellchatSender, cell
            targets.use = match(input$cellchatReciever, cell_types),  remove.isolate = FALSE, angle.x = 45) + scale_y_discrete(limits=rev)
 }
 print(g1)
-ggsave(paste0('cellchat/bubble/Bubble_',paste(input$cellchatSender, collapse = "-"),'_to_',paste(input$cellchatReciever, collapse = "-"),'_total_strength.pdf'), width = 400/72,  height = 400/72)
+ggsave(paste0('cellchat/bubble/Bubble_',paste(input$cellchatSender, collapse = "-"),'_to_',paste(input$cellchatReciever, collapse = "-"),'_total_strength.pdf'), width = 400/72,  height = 400/72, device = cairo_pdf)
 
 output$bubble1 <- renderPlot({print(g1)})
 
@@ -23301,7 +23301,7 @@ ga2 <- netVisual_bubble(cellchat, sources.use = match(input$cellchatSender, cell
 
 output$bubble2 <- renderPlot({print(wrap_plots(ga1, ga2))})
 print(wrap_plots(ga1, ga2))
-ggsave(paste0('cellchat/bubble/Bubble_',paste(input$cellchatSender, collapse = "-"),'_to_',paste(input$cellchatReciever, collapse = "-"),'_comparison.pdf'), width = 700/72,  height = 400/72)
+ggsave(paste0('cellchat/bubble/Bubble_',paste(input$cellchatSender, collapse = "-"),'_to_',paste(input$cellchatReciever, collapse = "-"),'_comparison.pdf'), width = 700/72,  height = 400/72, device = cairo_pdf)
 
 
 } else {output$bubble2 <- NULL}
@@ -23323,18 +23323,18 @@ if (!is.null(gb1) & !is.null(gb2)) {
 output$bubble3 <- renderPlot({print(wrap_plots(gb1, gb2))})
 
 print(wrap_plots(gb1, gb2))
-ggsave(paste0('cellchat/bubble/Bubble_',paste(input$cellchatSender, collapse = "-"),'_to_',paste(input$cellchatReciever, collapse = "-"),'_significantL-R_in_', input$cellchatSignaling, '.pdf'), width = 700/72,  height = 400/72)
+ggsave(paste0('cellchat/bubble/Bubble_',paste(input$cellchatSender, collapse = "-"),'_to_',paste(input$cellchatReciever, collapse = "-"),'_significantL-R_in_', input$cellchatSignaling, '.pdf'), width = 700/72,  height = 400/72, device = cairo_pdf)
 
 
 
 } else if  (!is.null(gb1)) {
     print(gb1)
-    ggsave(paste0('cellchat/bubble/Bubble_',paste(input$cellchatSender, collapse = "-"),'_to_',paste(input$cellchatReciever, collapse = "-"),'_significantL-R_in_', input$cellchatSignaling, '.pdf'), width = 700/72,  height = 400/72)
+    ggsave(paste0('cellchat/bubble/Bubble_',paste(input$cellchatSender, collapse = "-"),'_to_',paste(input$cellchatReciever, collapse = "-"),'_significantL-R_in_', input$cellchatSignaling, '.pdf'), width = 700/72,  height = 400/72, device = cairo_pdf)
     output$bubble3 <- renderPlot({print(gb1)})
 
     } else if ( !is.null(gb2) ) {
     print(gb2)
-   ggsave(paste0('cellchat/bubble/Bubble_',paste(input$cellchatSender, collapse = "-"),'_to_',paste(input$cellchatReciever, collapse = "-"),'_significantL-R_in_', input$cellchatSignaling, '.pdf'), width = 700/72,  height = 400/72)
+   ggsave(paste0('cellchat/bubble/Bubble_',paste(input$cellchatSender, collapse = "-"),'_to_',paste(input$cellchatReciever, collapse = "-"),'_significantL-R_in_', input$cellchatSignaling, '.pdf'), width = 700/72,  height = 400/72, device = cairo_pdf)
     output$bubble3 <- renderPlot({print(gb2)})
 }
     } else { #comparisonではないとき
@@ -23342,10 +23342,10 @@ gb1 <- netVisual_bubble(cellchat, sources.use = match(input$cellchatSender, cell
             targets.use = match(input$cellchatReciever, cell_types), signaling = input$cellchatSignaling, remove.isolate = FALSE, angle.x = 45) + scale_y_discrete(limits=rev)
 output$bubble3 <- renderPlot({print(gb1)})
 print(gb1)
-ggsave(paste0('cellchat/bubble/Bubble_',paste(input$cellchatSender, collapse = "-"),'_to_',paste(input$cellchatReciever, collapse = "-"),'_significantL-R_in_', input$cellchatSignaling, '.pdf'), width = 700/72,  height = 400/72)
+ggsave(paste0('cellchat/bubble/Bubble_',paste(input$cellchatSender, collapse = "-"),'_to_',paste(input$cellchatReciever, collapse = "-"),'_significantL-R_in_', input$cellchatSignaling, '.pdf'), width = 700/72,  height = 400/72, device = cairo_pdf)
 
 }
-#ggsave(paste0('Bubble_significant_interactions_in_',input$cellchatSignaling,'.pdf'), width = 700/72,  height = 700/72)
+#ggsave(paste0('Bubble_significant_interactions_in_',input$cellchatSignaling,'.pdf'), width = 700/72,  height = 700/72, device = cairo_pdf)
 
 }, error = function(e) {
       print(paste("Error :  ", e))
