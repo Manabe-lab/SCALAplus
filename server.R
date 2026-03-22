@@ -26653,9 +26653,23 @@ content = function(file){
           outline_cols <- setNames(
             mapply(function(c, a) scales::alpha(c, a), unname(outline_cols), outline_alpha, USE.NAMES = FALSE),
             names(outline_cols))
+          # Reorder: draw highlighted clusters last (in front)
+          if (isTRUE(input$umapHighlightFront)) {
+            bg_rows <- which(!(reduc_data[[input$umapColorBy]] %in% hl_clusters))
+            # Highlighted clusters in selection order
+            fg_rows <- unlist(lapply(hl_clusters, function(cl) {
+              which(reduc_data[[input$umapColorBy]] == cl)
+            }))
+            reduc_data <- reduc_data[c(bg_rows, fg_rows), ]
+          }
         } else {
           plot_cols <- scales::alpha(cols, base_alpha)
         }
+
+        # DimPlot order parameter for bringing highlighted clusters to front
+        dimplot_order <- if (isTRUE(input$umapHighlight) && length(input$umapHighlightClusters) > 0 && isTRUE(input$umapHighlightFront)) {
+          input$umapHighlightClusters
+        } else { NULL }
 
         session$sendCustomMessage("handler_startLoader", c("dim_red2_loader", 50))
 
@@ -26688,13 +26702,13 @@ content = function(file){
             if (input$umapLabelSize > 0){
            p <- DimPlot(seurat_object, dims = c(input$umapX, input$umapY), pt.size = as.numeric(input$umapDotSize), label = TRUE, label.size = input$umapLabelSize,
               reduction = input$umapType, split.by = input$umapSplitBy, group.by = input$umapColorBy, ncol = ncol,
-              cols = plot_cols)
+              cols = plot_cols, order = dimplot_order)
 
 
             } else {
               p <- DimPlot(seurat_object, dims = c(input$umapX, input$umapY), pt.size = as.numeric(input$umapDotSize), label = FALSE,
               reduction = input$umapType, split.by = input$umapSplitBy, group.by = input$umapColorBy, ncol = ncol,
-              cols = plot_cols)
+              cols = plot_cols, order = dimplot_order)
             }
 
 if (input$umapReverseX){
@@ -26711,22 +26725,22 @@ if (input$umapReverseY){
           if (input$umapRandom){
            p <- DimPlot(seurat_object, dims = c(input$umapX, input$umapY), pt.size = as.numeric(input$umapDotSize), label = TRUE, label.size = input$umapLabelSize,
             label.color = input$umaplegendtextColor,
-              reduction = input$umapType, group.by = input$umapColorBy, cols = plot_cols, cells = sample(Cells(seurat_object))) &
+              reduction = input$umapType, group.by = input$umapColorBy, cols = plot_cols, order = dimplot_order, cells = sample(Cells(seurat_object))) &
             labs(x=paste0(reduc.key, "_1"), y=paste0(reduc.key, "_2"), color="Cell type", title = "", fill="Color")
             } else {
             p <- DimPlot(seurat_object, dims = c(input$umapX, input$umapY), pt.size = as.numeric(input$umapDotSize), label = TRUE, label.size = input$umapLabelSize,
               label.color = input$umaplegendtextColor,
-              reduction = input$umapType, group.by = input$umapColorBy, cols = plot_cols) &
+              reduction = input$umapType, group.by = input$umapColorBy, cols = plot_cols, order = dimplot_order) &
             labs(x=paste0(reduc.key, "_", as.character(input$umapX)), y=paste0(reduc.key, "_", as.character(input$umapY)), color="Cell type", title = "", fill="Color")
             }
             } else {
           if (input$umapRandom){
             p <- DimPlot(seurat_object, dims = c(input$umapX, input$umapY), pt.size = as.numeric(input$umapDotSize), label = FALSE,
-                        reduction = input$umapType, group.by = input$umapColorBy, cols = plot_cols, cells = sample(Cells(seurat_object))) &
+                        reduction = input$umapType, group.by = input$umapColorBy, cols = plot_cols, order = dimplot_order, cells = sample(Cells(seurat_object))) &
                       labs(x=paste0(reduc.key, "_", as.character(input$umapX)), y=paste0(reduc.key, "_", as.character(input$umapY)), color="Cell type", title = "", fill="Color")
             } else {
               p <- DimPlot(seurat_object, dims = c(input$umapX, input$umapY), pt.size = as.numeric(input$umapDotSize), label = FALSE,
-                        reduction = input$umapType, group.by = input$umapColorBy, cols = plot_cols) &
+                        reduction = input$umapType, group.by = input$umapColorBy, cols = plot_cols, order = dimplot_order) &
                       labs(x=paste0(reduc.key, "_", as.character(input$umapX)), y=paste0(reduc.key, "_", as.character(input$umapY)), color="Cell type", title = "", fill="Color")
            }
             }

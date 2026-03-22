@@ -3051,7 +3051,8 @@ tags$br(),
                              numericInput("umapHighlightBgOpacity", "Background fill opacity:",
                                           min = 0, max = 1, value = 0.2, step = 0.05),
                              numericInput("umapHighlightBorderOpacity", "Background border opacity:",
-                                          min = 0, max = 1, value = 0.6, step = 0.05)
+                                          min = 0, max = 1, value = 0.6, step = 0.05),
+                             checkboxInput("umapHighlightFront", label = "Draw highlighted clusters in front", value = TRUE)
                            )
                          ),
                          numericInput("umapDotBorder", "Dot border width:", min = 0, max = 10, value = 0.2, step = 0.1),
