@@ -14890,14 +14890,18 @@ seurat_object <<- densitypath_ee_matlab_exact(seurat_object, d = input$umapOutCo
       updateReduction()
   })
 
-  # Update highlight cluster choices when Color by changes
-  observeEvent(input$umapColorBy, {
-    req(seurat_object)
+  # Update highlight cluster choices when Color by or highlight toggle changes
+  observeEvent(c(input$umapColorBy, input$umapHighlight, input$umapConfirm), {
+    req(seurat_object, input$umapColorBy)
     meta <- seurat_object@meta.data
     if (input$umapColorBy %in% colnames(meta)) {
       cluster_levels <- levels(factor(meta[[input$umapColorBy]]))
+      current <- input$umapHighlightClusters
+      # Keep current selection if still valid
+      valid_selected <- intersect(current, cluster_levels)
       updateSelectizeInput(session, "umapHighlightClusters",
-                           choices = cluster_levels, selected = NULL)
+                           choices = cluster_levels,
+                           selected = if (length(valid_selected) > 0) valid_selected else NULL)
     }
   }, ignoreInit = TRUE)
 
