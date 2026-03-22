@@ -3049,9 +3049,9 @@ tags$br(),
                              selectizeInput("umapHighlightClusters", "Clusters to highlight:",
                                             choices = NULL, selected = NULL, multiple = TRUE),
                              numericInput("umapHighlightBgOpacity", "Background fill opacity:",
-                                          min = 0, max = 1, value = 0.05, step = 0.05),
+                                          min = 0, max = 1, value = 0.2, step = 0.05),
                              numericInput("umapHighlightBorderOpacity", "Background border opacity:",
-                                          min = 0, max = 1, value = 0.3, step = 0.05)
+                                          min = 0, max = 1, value = 0.6, step = 0.05)
                            )
                          ),
                          numericInput("umapDotBorder", "Dot border width:", min = 0, max = 10, value = 0.2, step = 0.1),
