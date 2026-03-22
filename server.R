@@ -26611,7 +26611,7 @@ content = function(file){
         shared_cluster_cols(list(cols = cols, colorBy = input$umapColorBy))
 
         if (input$umapDotBorder > 0){
-            outline_cols <- rep('black', color_length)
+            outline_cols <- setNames(rep('black', length(names(cols))), names(cols))
         } else {
             outline_cols <- cols
         }
@@ -26632,19 +26632,27 @@ content = function(file){
 
 
         # --- Cluster highlight: per-cluster alpha ---
+        # Dot opacity applies to all clusters. When highlight is ON,
+        # non-highlighted clusters get Dot opacity × Background opacity.
+        base_alpha <- as.numeric(input$umapDotOpacity)
         if (isTRUE(input$umapHighlight) && length(input$umapHighlightClusters) > 0) {
           hl_clusters <- input$umapHighlightClusters
-          bg_alpha <- as.numeric(input$umapHighlightBgOpacity)
-          fg_alpha <- as.numeric(input$umapDotOpacity)
+          bg_alpha <- base_alpha * as.numeric(input$umapHighlightBgOpacity)
+          fg_alpha <- base_alpha
           alpha_vals <- ifelse(names(cols) %in% hl_clusters, fg_alpha, bg_alpha)
           plot_cols <- setNames(
             mapply(function(c, a) scales::alpha(c, a), unname(cols), alpha_vals, USE.NAMES = FALSE),
             names(cols))
           reduc_data$.highlight_alpha <- ifelse(
             reduc_data[[input$umapColorBy]] %in% hl_clusters, fg_alpha, bg_alpha)
+          # Border alpha: same logic
+          outline_alpha <- ifelse(names(outline_cols) %in% hl_clusters, fg_alpha, bg_alpha)
+          outline_cols <- setNames(
+            mapply(function(c, a) scales::alpha(c, a), unname(outline_cols), outline_alpha, USE.NAMES = FALSE),
+            names(outline_cols))
         } else {
-          plot_cols <- scales::alpha(cols, as.numeric(input$umapDotOpacity))
-          reduc_data$.highlight_alpha <- as.numeric(input$umapDotOpacity)
+          plot_cols <- scales::alpha(cols, base_alpha)
+          reduc_data$.highlight_alpha <- base_alpha
         }
 
         session$sendCustomMessage("handler_startLoader", c("dim_red2_loader", 50))
