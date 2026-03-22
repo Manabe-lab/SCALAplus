@@ -3041,6 +3041,17 @@ tags$br(),
                       tags$h4("Additional options:"),
                          numericInput("umapDotSize", "Dot size:", min = 0.1, max = 10, value = 4, step = 0.1), # value = 5
                          numericInput("umapDotOpacity", "Dot opacity (0-1):", min = 0, max = 1, value = 1, step = 0.1), # value = 1
+                         checkboxInput("umapHighlight", label = "Highlight specific clusters?", value = FALSE),
+                         conditionalPanel(
+                           condition = "input.umapHighlight == true",
+                           tags$div(
+                             style = "background-color: #f0f7ff; padding: 10px; border-radius: 5px; margin-bottom: 10px;",
+                             selectizeInput("umapHighlightClusters", "Clusters to highlight:",
+                                            choices = NULL, selected = NULL, multiple = TRUE),
+                             numericInput("umapHighlightBgOpacity", "Background opacity:",
+                                          min = 0, max = 1, value = 0.05, step = 0.05)
+                           )
+                         ),
                          numericInput("umapDotBorder", "Dot border width:", min = 0, max = 10, value = 0.2, step = 0.1),
                          numericInput("umapLabelSize", "Cluster label size:", min = 0, max = 16, value = 8, step = 1),
                          numericInput("umaplegendtextSize", "Legend font size:", min = 0, max = 30, value = 16, step = 1),

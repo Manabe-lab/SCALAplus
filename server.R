@@ -14890,6 +14890,17 @@ seurat_object <<- densitypath_ee_matlab_exact(seurat_object, d = input$umapOutCo
       updateReduction()
   })
 
+  # Update highlight cluster choices when Color by changes
+  observeEvent(input$umapColorBy, {
+    req(seurat_object)
+    meta <- seurat_object@meta.data
+    if (input$umapColorBy %in% colnames(meta)) {
+      cluster_levels <- levels(factor(meta[[input$umapColorBy]]))
+      updateSelectizeInput(session, "umapHighlightClusters",
+                           choices = cluster_levels, selected = NULL)
+    }
+  }, ignoreInit = TRUE)
+
     observeEvent(input$umapConfirm3D, {
     if(input$umapType != "-")
     updateUtilitiesReduction()
@@ -26620,6 +26631,22 @@ content = function(file){
         }
 
 
+        # --- Cluster highlight: per-cluster alpha ---
+        if (isTRUE(input$umapHighlight) && length(input$umapHighlightClusters) > 0) {
+          hl_clusters <- input$umapHighlightClusters
+          bg_alpha <- as.numeric(input$umapHighlightBgOpacity)
+          fg_alpha <- as.numeric(input$umapDotOpacity)
+          alpha_vals <- ifelse(names(cols) %in% hl_clusters, fg_alpha, bg_alpha)
+          plot_cols <- setNames(
+            mapply(function(c, a) scales::alpha(c, a), unname(cols), alpha_vals, USE.NAMES = FALSE),
+            names(cols))
+          reduc_data$.highlight_alpha <- ifelse(
+            reduc_data[[input$umapColorBy]] %in% hl_clusters, fg_alpha, bg_alpha)
+        } else {
+          plot_cols <- scales::alpha(cols, as.numeric(input$umapDotOpacity))
+          reduc_data$.highlight_alpha <- as.numeric(input$umapDotOpacity)
+        }
+
         session$sendCustomMessage("handler_startLoader", c("dim_red2_loader", 50))
 
 
@@ -26651,13 +26678,13 @@ content = function(file){
             if (input$umapLabelSize > 0){
            p <- DimPlot(seurat_object, dims = c(input$umapX, input$umapY), pt.size = as.numeric(input$umapDotSize), label = TRUE, label.size = input$umapLabelSize,
               reduction = input$umapType, split.by = input$umapSplitBy, group.by = input$umapColorBy, ncol = ncol,
-              cols = alpha(cols,as.numeric(input$umapDotOpacity)))
+              cols = plot_cols)
 
 
             } else {
               p <- DimPlot(seurat_object, dims = c(input$umapX, input$umapY), pt.size = as.numeric(input$umapDotSize), label = FALSE,
               reduction = input$umapType, split.by = input$umapSplitBy, group.by = input$umapColorBy, ncol = ncol,
-              cols = alpha(cols,as.numeric(input$umapDotOpacity)))
+              cols = plot_cols)
             }
 
 if (input$umapReverseX){
@@ -26674,22 +26701,22 @@ if (input$umapReverseY){
           if (input$umapRandom){
            p <- DimPlot(seurat_object, dims = c(input$umapX, input$umapY), pt.size = as.numeric(input$umapDotSize), label = TRUE, label.size = input$umapLabelSize,
             label.color = input$umaplegendtextColor,
-              reduction = input$umapType, group.by = input$umapColorBy, cols = alpha(cols,as.numeric(input$umapDotOpacity)), cells = sample(Cells(seurat_object))) &
+              reduction = input$umapType, group.by = input$umapColorBy, cols = plot_cols, cells = sample(Cells(seurat_object))) &
             labs(x=paste0(reduc.key, "_1"), y=paste0(reduc.key, "_2"), color="Cell type", title = "", fill="Color")
             } else {
             p <- DimPlot(seurat_object, dims = c(input$umapX, input$umapY), pt.size = as.numeric(input$umapDotSize), label = TRUE, label.size = input$umapLabelSize,
               label.color = input$umaplegendtextColor,
-              reduction = input$umapType, group.by = input$umapColorBy, cols = alpha(cols,as.numeric(input$umapDotOpacity))) &
+              reduction = input$umapType, group.by = input$umapColorBy, cols = plot_cols) &
             labs(x=paste0(reduc.key, "_", as.character(input$umapX)), y=paste0(reduc.key, "_", as.character(input$umapY)), color="Cell type", title = "", fill="Color")
             }
             } else {
           if (input$umapRandom){
             p <- DimPlot(seurat_object, dims = c(input$umapX, input$umapY), pt.size = as.numeric(input$umapDotSize), label = FALSE,
-                        reduction = input$umapType, group.by = input$umapColorBy, cols = alpha(cols,as.numeric(input$umapDotOpacity)), cells = sample(Cells(seurat_object))) &
+                        reduction = input$umapType, group.by = input$umapColorBy, cols = plot_cols, cells = sample(Cells(seurat_object))) &
                       labs(x=paste0(reduc.key, "_", as.character(input$umapX)), y=paste0(reduc.key, "_", as.character(input$umapY)), color="Cell type", title = "", fill="Color")
             } else {
               p <- DimPlot(seurat_object, dims = c(input$umapX, input$umapY), pt.size = as.numeric(input$umapDotSize), label = FALSE,
-                        reduction = input$umapType, group.by = input$umapColorBy, cols = alpha(cols,as.numeric(input$umapDotOpacity))) &
+                        reduction = input$umapType, group.by = input$umapColorBy, cols = plot_cols) &
                       labs(x=paste0(reduc.key, "_", as.character(input$umapX)), y=paste0(reduc.key, "_", as.character(input$umapY)), color="Cell type", title = "", fill="Color")
            }
             }
@@ -26727,7 +26754,8 @@ if (input$umapReverseY){
 
             p_sub_neb[[x]] <-  ggplot(data=reduc_sub, aes_string(x=colnames(reduc_sub)[input$umapX], y=colnames(reduc_sub)[input$umapY],
                colour =input$umapColorBy, fill=input$umapColorBy)) & #outlineとfillを同じに
-            geom_point(size= as.numeric(input$umapDotSize), shape=21, alpha= as.numeric(input$umapDotOpacity), stroke=as.numeric(input$umapDotBorder))&
+            geom_point(aes(alpha = .highlight_alpha), size= as.numeric(input$umapDotSize), shape=21, stroke=as.numeric(input$umapDotBorder))&
+            scale_alpha_identity() &
             scale_fill_manual(values = cols) &
             scale_colour_manual(values = outline_cols) &
             scale_size() &
@@ -26767,7 +26795,8 @@ if (input$umapReverseY){
 
           p <- ggplot(data=reduc_data, aes_string(x=colnames(reduc_data)[input$umapX], y=colnames(reduc_data)[input$umapY],
                           colour =input$umapColorBy, fill=input$umapColorBy)) &
-            geom_point(size= as.numeric(input$umapDotSize), shape=21, alpha= as.numeric(input$umapDotOpacity), stroke=as.numeric(input$umapDotBorder))&
+            geom_point(aes(alpha = .highlight_alpha), size= as.numeric(input$umapDotSize), shape=21, stroke=as.numeric(input$umapDotBorder))&
+            scale_alpha_identity() &
             scale_fill_manual(values = cols)&
             scale_colour_manual(values = outline_cols) &
             scale_size() &
