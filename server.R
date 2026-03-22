@@ -17513,7 +17513,7 @@ output$umapdownloaderPDF <- downloadHandler(
     tryCatch({
       h <- if (!is.null(input$umapHeight) && input$umapHeight > 0) input$umapHeight/72 else 8
       w <- if (!is.null(input$umapWidth) && input$umapWidth > 0) input$umapWidth/72 else 10
-      ggsave(file, plot = global_umap, height = h, width = w)
+      ggsave(file, plot = global_umap, height = h, width = w, device = cairo_pdf)
     }, error = function(e) {
       print(paste("Error saving PDF:", e$message))
       showNotification(paste("Error saving plot:", e$message), type = "error")
