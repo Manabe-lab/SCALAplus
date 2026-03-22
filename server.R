@@ -26649,7 +26649,12 @@ content = function(file){
             names(cols))
           reduc_data$.highlight_alpha <- ifelse(
             reduc_data[[input$umapColorBy]] %in% hl_clusters, fg_alpha, bg_alpha)
-          # Border: keep as-is (no alpha dimming) so dots stay crisp
+          # Border alpha: separately controlled
+          border_bg_alpha <- base_alpha * as.numeric(input$umapHighlightBorderOpacity)
+          outline_alpha <- ifelse(names(outline_cols) %in% hl_clusters, fg_alpha, border_bg_alpha)
+          outline_cols <- setNames(
+            mapply(function(c, a) scales::alpha(c, a), unname(outline_cols), outline_alpha, USE.NAMES = FALSE),
+            names(outline_cols))
         } else {
           plot_cols <- scales::alpha(cols, base_alpha)
           reduc_data$.highlight_alpha <- base_alpha
