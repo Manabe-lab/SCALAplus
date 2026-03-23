@@ -5874,7 +5874,7 @@ tabPanel("Spatial subsetting", fluidRow(
                               <hr>
                               <h2 class=sub_title> About SCALA+ </h2>
                               <p style='font-size:15px'>
-                              SCALA+ is a modified and extended version of SCALA (modified since 2024) with
+                              SCALA+ is a modified and extended version of SCALA (modified since 2023) with
                               significant additional analytical capabilities and full Seurat v5 compatibility.
                               We gratefully acknowledge the original SCALA developers for creating the
                               foundation upon which SCALA+ is built.
