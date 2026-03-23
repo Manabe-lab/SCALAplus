@@ -5835,7 +5835,7 @@ tabPanel("Spatial subsetting", fluidRow(
 
       tabItem (tabName = "about",
                div(id = "about_div", class = "div_container",
-                   h1(class = "container_title", "About SCALA"),
+                   h1(class = "container_title", "About SCALA+"),
                    HTML("
                               <hr>
                               <h2 class=sub_title> Research team </h2>
@@ -5869,7 +5869,55 @@ tabPanel("Spatial subsetting", fluidRow(
                               <a href=\"https://fleming.gr/kollias-lab-single-cell-analysis-unit\" target=\"_blank\">Single Cell Analysis Unit</a> |
                               <a href=\"https://sites.google.com/site/pavlopoulossite\" target=\"_blank\">Bioinformatics and Integrative Biology Lab</a> |
                               <a href=\"https://www.fleming.gr\" target=\"_blank\">Biomedical Sciences Research Center \"Alexander Fleming\"</a>
-                              </footer>"
+                              </footer>
+
+                              <hr>
+                              <h2 class=sub_title> About SCALA+ </h2>
+                              <p style='font-size:15px'>
+                              SCALA+ is a modified and extended version of SCALA (modified since 2024) with
+                              significant additional analytical capabilities and full Seurat v5 compatibility.
+                              We gratefully acknowledge the original SCALA developers for creating the
+                              foundation upon which SCALA+ is built.
+                              </p>
+
+                              <h3 class=sub_title> Key additions in SCALA+ </h3>
+                              <ul>
+                                <li><b>Seurat v5 (Assay5) full compatibility</b></li>
+                                <li><b>Batch correction & integration</b> &mdash; Harmony, fastMNN, Scanorama, scVI, iRECODE</li>
+                                <li><b>CellChat</b> &mdash; Cell-cell communication analysis with multiple database options</li>
+                                <li><b>NicheNet</b> &mdash; Ligand-receptor interaction analysis (v1 & v2)</li>
+                                <li><b>Enhanced SCENIC</b> &mdash; pySCENIC RSS integration, regulon assay creation, improved visualization</li>
+                                <li><b>CellBender</b> &mdash; Ambient RNA removal</li>
+                                <li><b>DropletQC</b> &mdash; Empty droplet and damaged cell detection</li>
+                                <li><b>Enhanced demultiplexing</b> &mdash; demuxmix, deMULTIplex2, hashDemux with diagnostic plots</li>
+                                <li><b>Contamination correction</b> &mdash; SoupX, scCDC</li>
+                                <li><b>Imputation</b> &mdash; ALRA, MAGIC, DeepImpute, RECODE</li>
+                                <li><b>GSDensity</b> &mdash; Density-based gene set / pathway scoring</li>
+                                <li><b>Spatial transcriptomics</b> &mdash; Visium support, BANKSY spatially-aware clustering</li>
+                                <li><b>Advanced DEG analysis</b> &mdash; NEBULA, MUSCAT, MAST with random effects</li>
+                                <li><b>Cell annotation</b> &mdash; HemaScribe, BoneMarrowMap reference mapping</li>
+                                <li><b>Augur & CytoTRACE2</b> &mdash; Cell type prioritization & developmental potential</li>
+                                <li><b>Additional dimensionality reduction</b> &mdash; PaCMAP, TRIMAP, ForceAtlas2</li>
+                                <li><b>PC covariate analysis</b> &mdash; Comprehensive PCA quality assessment</li>
+                                <li><b>Pseudobulk analysis</b> &mdash; Aggregation and differential testing</li>
+                                <li><b>UMAP cluster highlight</b> &mdash; Configurable fill/border opacity</li>
+                                <li><b>Velocyto wrapper</b> &mdash; Loom file generation from BAM</li>
+                              </ul>
+
+                              <h3 class=sub_title> SCALA+ Developer </h3>
+                              <ul>
+                                <li>Ichiro Manabe, Department of Systems Medicine, Chiba University Graduate School of Medicine</li>
+                              </ul>
+
+                              <h3 class=sub_title> Code Availability </h3>
+                              <p>The source code for SCALA+ can be found in
+                              <a href='https://github.com/Manabe-lab/SCALAplus' target='_blank'>this repository</a>.</p>
+
+                              <h3 class=sub_title> License </h3>
+                              <p style='font-size:15px'>SCALA+ is licensed under the
+                              <a href='https://www.gnu.org/licenses/gpl-3.0.html' target='_blank'>GNU General Public License v3.0</a>,
+                              the same license as the original SCALA.</p>
+                              "
                                    )
                    )
                )
