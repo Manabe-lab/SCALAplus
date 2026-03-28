@@ -1,10 +1,14 @@
-# SCALAplus
+<div align="center">
+<img src="SCALAplus_logo.png" alt="SCALA+ Logo" width="300">
+</div>
 
-A modified and extended version of [SCALA](https://github.com/scBONITA/SCALA) for multimodal analysis of single cell next generation sequencing data.
+# SCALA+
+
+A modified and extended version of [SCALA](https://github.com/PavlopoulosLab/SCALA) for multimodal analysis of single cell next generation sequencing data, with full Seurat v5 compatibility and significant additional analytical capabilities (modified since 2023).
 
 ## About This Version
 
-SCALAplus is based on the original SCALA developed by the teams at Biomedical Sciences Research Center "Alexander Fleming". This version includes additional features and improvements.
+SCALA+ is based on the original SCALA developed by the teams at Biomedical Sciences Research Center "Alexander Fleming". We gratefully acknowledge the original SCALA developers for creating the foundation upon which SCALA+ is built.
 
 If you use SCALAplus, please cite the original SCALA paper:
 

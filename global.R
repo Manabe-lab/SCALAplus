@@ -61,7 +61,7 @@ library(parallel)
 #library(chromVARmotifs)
 library(reticulate)
 use_condaenv("r-scvi")
-#use_python("/home/cellxgene/anaconda3/bin/python", required = T)
+#use_python(file.path(Sys.getenv("HOME"), "anaconda3", "bin", "python"), required = T)
 #library(JASPAR2022)
 #library(JASPAR2020)
 #library(JASPAR2018)
@@ -219,14 +219,14 @@ hideAllLoaders <- function(){
 #gProfiler
 #set_base_url("http://biit.cs.ut.ee/gprofiler_archive3/e102_eg49_p15")
 
-# 最初に従来のファイルを削除する
+# Remove legacy files first
 files_to_delete <- dir(pattern="*.pdf")
 print("PDF files")
 print(files_to_delete)
 
 file.remove(files_to_delete)
 
-# 関数ベタ書き-------------------
+# Function inline definition -------------------
 
 RunFastMNN2 <- function(
   object.list,
@@ -261,11 +261,11 @@ RunFastMNN2 <- function(
 objects.sce <- lapply(X = object.list, FUN = function(x,f) {
 #if (DefaultAssay(x) == 'SCT') {
   if (assay == 'SCT') {
-x = DietSeurat(subset(x = x, features = f), assays = assay) #DietSeuratのエラー回避
+x = DietSeurat(subset(x = x, features = f), assays = assay) # DietSeurat error workaround
 indx <- match(rownames(x@assays$SCT@counts),rownames(x@assays$SCT@scale.data))
 x@assays$SCT@scale.data <- x@assays$SCT@scale.data[indx,]
 } else {
-x = DietSeurat( subset(x = x, features = f), assays = assay ) # DietSeuratのエラー回避
+x = DietSeurat( subset(x = x, features = f), assays = assay ) # DietSeurat error workaround
 }
 return(as.SingleCellExperiment(x))
 }, f = features)
@@ -309,7 +309,7 @@ return(as.SingleCellExperiment(x))
 
 #---------------------------------
 
-########################  library("SCOPfunctions") これではエラーになるので直接関数ベタ書き
+########################  library("SCOPfunctions") causes error, so functions are written inline
 .FoldChange.default <- function(
   data,
   cells.1,
@@ -718,7 +718,7 @@ utils_big_as.matrix <- function(
   return(df)
 }
 
-#### 改変版 dynamoへの対応
+#### Modified version for dynamo compatibility
 # Improved seurat2ann function with PCA loading support
 # No external dependencies except Seurat, reticulate, and anndata
 #
@@ -1247,7 +1247,7 @@ seurat2ann <- function(obj,
   adata
 }
 
-###################　関数終わり
+################# Function end
 
 ############ color palettes
 
@@ -1299,7 +1299,7 @@ Zissou1Continuous = c("#3A9AB2", "#6FB2C1", "#91BAB6", "#A5C2A3", "#BDC881", "#D
                "25"="#565656","26"="#E2E2E2")
 
 
-# conversion _,-の変換によるduplicate形成に対応
+# Handle duplicate names from _ to - conversion
 
 anndata2seurat <- function(inFile, outFile = NULL, main_layer = "counts", assay = "RNA", use_seurat = FALSE,
                            lzf = FALSE, target_uns_keys = list(), x_to_counts = FALSE) {
@@ -1334,7 +1334,7 @@ anndata2seurat <- function(inFile, outFile = NULL, main_layer = "counts", assay 
     obs_df <- .obs2metadata(ad$obs)
     var_df <- .var2feature_metadata(ad$var)
 
-    # seuratへの読み込みの際に、_を-に変換するときにduplicate nameになるときの対応
+    # Handle duplicate names when _ is converted to - during Seurat import
 names <- row.names(var_df)
 new_names <- str_replace_all(names, '_', '-')
 if (sum(duplicated(new_names)) >0 ){
@@ -1566,22 +1566,22 @@ check_seurat_version <- function() {
 
 
 is_sparse_matrix_contains_decimal <- function(sparse_matrix, threshold = 0.1) {
-  # 空の行列またはNULLの場合はFALSEを返す
+  # Return FALSE if matrix is empty or NULL
   if (is.null(sparse_matrix) || (nrow(sparse_matrix) == 0 && ncol(sparse_matrix) == 0)) {
     return(FALSE)
   }
-  # 非ゼロ要素のみを取得
+  # Extract non-zero elements only
   values <- sparse_matrix@x
-  # 非ゼロ要素の総数を計算
+  # Calculate total number of non-zero elements
   total_nonzero <- length(values)
-  # 非ゼロ要素が0の場合はFALSEを返す
+  # Return FALSE if there are zero non-zero elements
   if (total_nonzero == 0) {
     return(FALSE)
   }
-  # 少数を含む要素の数を計算
+  # Count elements containing decimals
   decimal_count <- sum(values != floor(values))
-  # 少数を含む要素の割合を計算
+  # Calculate ratio of elements containing decimals
   decimal_ratio <- decimal_count / total_nonzero
-  # 割合がしきい値以上ならTRUE、そうでなければFALSE
+  # Return TRUE if ratio >= threshold, FALSE otherwise
   return(decimal_ratio >= threshold)
 }

@@ -11,7 +11,7 @@
 #' @export
 fine_classify <- function(input, reference = "WT", query.reduction = "pca", return.full = FALSE) {
   
-  # HemaScribeDataを明示的に取得
+  # Explicitly get HemaScribeData
   HemaScribeData <- HemaScribe:::HemaScribeData
   
   if (inherits(input, "Seurat")) {
@@ -26,7 +26,7 @@ fine_classify <- function(input, reference = "WT", query.reduction = "pca", retu
     stop("Layer 'data' not available in Seurat object. Please normalize data first.")
   }
   
-  # 指定されたreductionの存在確認
+  # Check if specified reduction exists
   if (!(query.reduction %in% names(seurat@reductions))) {
     stop(paste("Reduction '", query.reduction, "' not found in Seurat object. Available reductions: ", 
                paste(names(seurat@reductions), collapse = ", ")))
@@ -49,26 +49,26 @@ fine_classify <- function(input, reference = "WT", query.reduction = "pca", retu
     rownames(ref@reductions$pca@feature.loadings) <- translate(rownames(ref@reductions$pca@feature.loadings))
   }
 
-  # query.reductionが"pca"でない場合、名前を一時的に変更
+  # If query.reduction is not "pca", temporarily rename it
   renamed <- FALSE
   original_name <- NULL
   existing_pca_name <- NULL
   
   if (query.reduction != "pca") {
-    # 既存のpcaがある場合はバックアップ名に変更
+    # If existing pca exists, rename to backup name
     if ("pca" %in% names(seurat@reductions)) {
       existing_pca_name <- "pca_temp_backup"
       names(seurat@reductions)[names(seurat@reductions) == "pca"] <- existing_pca_name
     }
     
-    # query.reductionをpcaに名前変更
+    # Rename query.reduction to pca
     names(seurat@reductions)[names(seurat@reductions) == query.reduction] <- "pca"
     
     renamed <- TRUE
     original_name <- query.reduction
   }
 
-  # FindTransferAnchorsの実行
+  # Run FindTransferAnchors
   anchors <- Seurat::FindTransferAnchors(
     reference = ref,
     query = seurat,
@@ -85,12 +85,12 @@ fine_classify <- function(input, reference = "WT", query.reduction = "pca", retu
   )
   pred$predicted.id[pred$predicted.id == "CFUE"] <- "EryP"
 
-  # 名前を元に戻す
+  # Restore original names
   if (renamed) {
-    # pcaを元の名前に戻す
+    # Restore pca to original name
     names(seurat@reductions)[names(seurat@reductions) == "pca"] <- original_name
     
-    # バックアップしたpcaがあれば復元
+    # Restore backed up pca if exists
     if (!is.null(existing_pca_name)) {
       names(seurat@reductions)[names(seurat@reductions) == existing_pca_name] <- "pca"
     }
@@ -123,24 +123,24 @@ fine_classify <- function(input, reference = "WT", query.reduction = "pca", retu
 #' @export
 HemaScribe <- function(input, prefilter = 0, reference = "WT", query.reduction = "pca", return.full = FALSE) {
   
-  # SCE変換エラー回避のための前処理
+  # Pre-processing to avoid SCE conversion errors
   if (inherits(input, "Seurat")) {
     rlang::inform(paste("Preprocessing for", query.reduction, "reduction"))
-    
-    # 統合手法に応じてvar.featuresを適切な遺伝子セットに置き換え
+
+    # Replace var.features with appropriate gene set based on integration method
     if (grepl("harmony", query.reduction, ignore.case = TRUE) && "pca" %in% names(input@reductions)) {
-      # harmonyの場合: PCAの遺伝子を使用
+      # For harmony: use PCA genes
       integ_features <- rownames(input@reductions$pca@feature.loadings)
       input@assays$RNA@var.features <- integ_features
       rlang::inform(paste("Using", length(integ_features), "integration features (from PCA) for SCE conversion"))
     } else if (grepl("mnn", query.reduction, ignore.case = TRUE) && query.reduction %in% names(input@reductions)) {
-      # mnnの場合: mnn reductionの遺伝子を使用
+      # For mnn: use mnn reduction genes
       mnn_features <- rownames(input@reductions[[query.reduction]]@feature.loadings)
       input@assays$RNA@var.features <- mnn_features
       rlang::inform(paste("Using", length(mnn_features), "MNN features for SCE conversion"))
     }
-    
-    # 問題となるassayを除去してaltExpsエラーを回避（全ケース共通）
+
+    # Remove problematic assays to avoid altExps errors (common for all cases)
     input@assays <- input@assays["RNA"]
   }
   
@@ -224,18 +224,18 @@ HemaScribe <- function(input, prefilter = 0, reference = "WT", query.reduction =
     }
     return(input)
 } else if (inherits(input, "Seurat")) {
-    # 細胞名を確認して順序を合わせる
+    # Verify cell names and match order
     cell_names <- colnames(input)
-    
-    # annotations.combinedの行名が細胞名と一致することを確認
+
+    # Verify row names of annotations.combined match cell names
     if (!all(rownames(annotations.combined) %in% cell_names)) {
       stop("Cell names mismatch between input and annotations")
     }
-    
-    # 順序を合わせる
+
+    # Match order
     annotations.combined <- annotations.combined[cell_names, , drop = FALSE]
-    
-    # 各列を追加
+
+    # Add each column
     for (col_name in colnames(annotations.combined)) {
       metadata_vector <- annotations.combined[[col_name]]
       names(metadata_vector) <- cell_names

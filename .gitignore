@@ -2,6 +2,7 @@
 scenic_helper_files/
 nichenetr_helper_files/
 db/
+GTF/
 ArchRGenome/
 .git_backup/
 
@@ -21,12 +22,12 @@ server.R.3-1
 server.R1-19
 server.R2
 server.RRRRRR
-v4用最終バージョン/
-global_SCTが動かないv5対応.R
-コード修正.R
-server-splitからマージはうまく動かない.R
-SCALAのtool.txt
-SCALA用のRインストール.txt
+v4_final_version/
+global_SCT_broken_v5_compatible.R
+code_fixes.R
+server_split_merge_not_working.R
+SCALA_tool.txt
+SCALA_R_installation.txt
 
 # Jupyter/Project files
 *.ipynb

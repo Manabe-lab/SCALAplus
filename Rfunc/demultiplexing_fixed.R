@@ -98,7 +98,7 @@ findMarkerTags <- function(seurat_object,assay = "HTO", resol = 1,
   DefaultAssay(seurat_object) = assay
   # build nearest-neighbor graph
   #mtrx = seurat_object[[assay]]$data %>% t()
-  # Seurat v5対応
+  # Seurat v5 compatible
   mtrx = GetAssayData(object = seurat_object, assay = assay, layer = "data")
 
   # Ensure mtrx is a matrix and transpose

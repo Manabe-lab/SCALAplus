@@ -1,20 +1,20 @@
-# 必要なライブラリ
+# Required libraries
 library(Seurat)
 library(Matrix)
 
-# 1. 平方距離計算
-# MATLABのsqdist.mと完全互換のR実装
+# 1. Squared distance calculation
+# R implementation fully compatible with MATLAB sqdist.m
 sqdist <- function(X, Y = NULL, w = NULL) {
-  # 引数が1つの場合の高速版（最も一般的なケース）
+  # Fast version for single argument (most common case)
   if (is.null(Y) && is.null(w)) {
     x <- rowSums(X^2)
-    # MATLABのbsxfun(@plus,x,bsxfun(@plus,x',-2*X*X'))と同等
+    # Equivalent to MATLAB bsxfun(@plus,x,bsxfun(@plus,x',-2*X*X'))
     sqd <- outer(x, x, "+") - 2 * (X %*% t(X))
-    sqd <- pmax(sqd, 0)  # 負の値を0にクリップ（数値誤差対策）
+    sqd <- pmax(sqd, 0)  # Clip negative values to 0 (numerical error handling)
     return(sqd)
   }
   
-  # Yのデフォルト処理
+  # Default handling of Y
   if (is.null(Y) || length(Y) == 0) {
     Y <- X
     eqXY <- TRUE
@@ -22,10 +22,10 @@ sqdist <- function(X, Y = NULL, w = NULL) {
     eqXY <- FALSE
   }
   
-  # 重み付き距離の場合
+  # For weighted distances
   if (!is.null(w) && length(w) > 0) {
-    h <- sqrt(as.vector(w))  # MATLABのw(:)'と同等
-    # MATLABのbsxfun(@times,X,h)と同等
+    h <- sqrt(as.vector(w))  # Equivalent to MATLAB w(:)'
+    # Equivalent to MATLAB bsxfun(@times,X,h)
     X <- sweep(X, 2, h, "*")
     if (eqXY) {
       Y <- X
@@ -34,28 +34,28 @@ sqdist <- function(X, Y = NULL, w = NULL) {
     }
   }
   
-  # 平方距離の計算: (x-y)² = x²+y²-2xy
+  # Squared distance calculation: (x-y)² = x²+y²-2xy
   x <- rowSums(X^2)
   if (eqXY) {
-    y <- x  # 転置は後でouterで処理
+    y <- x  # Transpose handled later with outer
   } else {
     y <- rowSums(Y^2)
   }
   
-  # MATLABのbsxfun(@plus,x,bsxfun(@plus,y,-2*X*Y'))と同等
+  # Equivalent to MATLAB bsxfun(@plus,x,bsxfun(@plus,y,-2*X*Y'))
   sqd <- outer(x, y, "+") - 2 * (X %*% t(Y))
-  sqd <- pmax(sqd, 0)  # 数値誤差対策
+  sqd <- pmax(sqd, 0)  # Numerical error handling
   
   return(sqd)
 }
 
-# MATLABとの互換性を検証する関数
+# Function to verify MATLAB compatibility
 test_sqdist_compatibility <- function() {
   cat("Testing sqdist MATLAB compatibility...\n\n")
-  
-  # テストケース1: 単一引数
+
+  # Test case 1: Single argument
   set.seed(42)
-  X <- matrix(rnorm(20), 5, 4)  # 5点×4次元
+  X <- matrix(rnorm(20), 5, 4)  # 5 points x 4 dimensions
   
   sqd1 <- sqdist(X)
   cat("Test 1 - Single argument:\n")
@@ -65,22 +65,22 @@ test_sqdist_compatibility <- function() {
   cat(sprintf("  Symmetric: %s\n", all(abs(sqd1 - t(sqd1)) < 1e-10)))
   cat(sprintf("  Non-negative: %s\n", all(sqd1 >= 0)))
   
-  # テストケース2: 2つの引数
-  Y <- matrix(rnorm(12), 3, 4)  # 3点×4次元
+  # Test case 2: Two arguments
+  Y <- matrix(rnorm(12), 3, 4)  # 3 points x 4 dimensions
   sqd2 <- sqdist(X, Y)
   cat("\nTest 2 - Two arguments:\n")
   cat(sprintf("  Size: %dx%d (should be 5x3)\n", nrow(sqd2), ncol(sqd2)))
   cat(sprintf("  Non-negative: %s\n", all(sqd2 >= 0)))
   
-  # テストケース3: 重み付き距離
+  # Test case 3: Weighted distances
   w <- c(1, 2, 0.5, 1)
   sqd3 <- sqdist(X, Y, w)
   cat("\nTest 3 - Weighted distances:\n")
   cat(sprintf("  Size: %dx%d\n", nrow(sqd3), ncol(sqd3)))
   cat(sprintf("  Non-negative: %s\n", all(sqd3 >= 0)))
   
-  # テストケース4: 手動計算との比較
-  # 最初の2点間の距離を手動で計算
+  # Test case 4: Comparison with manual calculation
+  # Manually calculate distance between first two points
   manual_dist <- sum((X[1,] - X[2,])^2)
   computed_dist <- sqd1[1,2]
   cat("\nTest 4 - Manual calculation check:\n")
@@ -88,7 +88,7 @@ test_sqdist_compatibility <- function() {
   cat(sprintf("  Computed: %g\n", computed_dist))
   cat(sprintf("  Difference: %g\n", abs(manual_dist - computed_dist)))
   
-  # テストケース5: 数値精度（近い点）
+  # Test case 5: Numerical precision (close points)
   X_close <- rbind(c(1, 2, 3), c(1, 2, 3 + 1e-8))
   sqd_close <- sqdist(X_close)
   cat("\nTest 5 - Numerical precision (very close points):\n")
@@ -98,38 +98,38 @@ test_sqdist_compatibility <- function() {
   cat("\nAll tests completed!\n")
 }
 
-# DensityPath用の平方距離行列生成（正規化付き）
+# Generate squared distance matrix for DensityPath (with normalization)
 compute_densitypath_distances <- function(X_normalized) {
-  # 入力が[0,1]に正規化されていることを確認
+  # Verify input is normalized to [0,1]
   if (min(X_normalized) < -1e-10 || max(X_normalized) > 1 + 1e-10) {
     warning("Input data may not be properly normalized to [0,1]")
   }
   
-  # 平方距離行列を計算
+  # Calculate squared distance matrix
   D2 <- sqdist(X_normalized)
   
-  # 対称性を保証（数値誤差対策）
+  # Ensure symmetry (numerical error handling)
   D2 <- (D2 + t(D2)) / 2
   
-  # 対角要素を正確に0に
+  # Set diagonal elements to exactly 0
   diag(D2) <- 0
   
   return(D2)
 }
 
-# 使用例とMATLABとの比較
+# Usage example and comparison with MATLAB
 demo_sqdist <- function() {
-  # MATLABのdemo_COIL.mと同じデータ処理をシミュレート
-  set.seed(29)  # MATLABのRandStreamと同じシード
-  
-  # サンプルデータ（正規化済み）
-  Y <- matrix(runif(100 * 50), 100, 50)  # 100点×50次元
-  
-  # MATLABスタイルの正規化
+  # Simulate same data processing as MATLAB demo_COIL.m
+  set.seed(29)  # Same seed as MATLAB RandStream
+
+  # Sample data (normalized)
+  Y <- matrix(runif(100 * 50), 100, 50)  # 100 points x 50 dimensions
+
+  # MATLAB-style normalization
   Y <- Y - min(Y)
   Y <- Y / max(Y)
   
-  # 平方距離行列の計算
+  # Calculate squared distance matrix
   cat("Computing squared distance matrix...\n")
   Wn <- sqdist(Y)
   
@@ -138,7 +138,7 @@ demo_sqdist <- function() {
   cat(sprintf("Max value: %g\n", max(Wn)))
   cat(sprintf("Mean value: %g\n", mean(Wn)))
   
-  # DensityPath用の正規化
+  # Normalization for DensityPath
   Wn_normalized <- (Wn + t(Wn)) / 2
   diag(Wn_normalized) <- 0
   Wn_normalized <- Wn_normalized / sum(Wn_normalized)
@@ -149,7 +149,7 @@ demo_sqdist <- function() {
   return(list(Wn = Wn, Wn_normalized = Wn_normalized))
 }
 
-# 4. 単一点のbetaとaffinitiesを計算
+# 4. Calculate beta and affinities for a single point
 eabeta <- function(d2, b0, logK, B, maxit = 20, tol = 1e-10) {
   if (b0 < B[1] || b0 > B[2]) {
     b <- (B[1] + B[2]) / 2
@@ -163,7 +163,7 @@ eabeta <- function(d2, b0, logK, B, maxit = 20, tol = 1e-10) {
     bE <- exp(b)
     pbm <- FALSE
     
-    # 関数値の計算
+    # Calculate function value
     ed2 <- exp(-d2 * bE)
     m0 <- sum(ed2)
     
@@ -180,7 +180,7 @@ eabeta <- function(d2, b0, logK, B, maxit = 20, tol = 1e-10) {
     
     if (B[2] - B[1] < 10 * .Machine$double.eps) break
     
-    # 境界の更新
+    # Update boundaries
     if (e < 0 && b <= B[2]) {
       B[2] <- b
     } else if (e > 0 && b >= B[1]) {
@@ -196,7 +196,7 @@ eabeta <- function(d2, b0, logK, B, maxit = 20, tol = 1e-10) {
         next
       }
       
-      # 勾配の計算
+      # Calculate gradient
       eg2 <- bE^2
       m2 <- sum(m1v * d2)
       m12 <- m1^2 - m2
@@ -237,26 +237,26 @@ nnsqdist <- function(X, k, method = "sort") {
   N <- nrow(X)
   k <- min(N - 1, k)
   
-  # FNNパッケージが利用可能な場合は高速版を使用
+  # Use fast version if FNN package is available
   if (requireNamespace("FNN", quietly = TRUE)) {
     knn_result <- FNN::get.knn(X, k = k, algorithm = "kd_tree")
     return(list(D2 = knn_result$nn.dist^2, nn = knn_result$nn.index))
   }
   
-  # 基本実装（FNNがない場合）
+  # Basic implementation (if FNN not available)
   D2 <- matrix(0, N, k)
   nn <- matrix(0, N, k)
   
-  # 全ペアワイズ距離を計算
+  # Calculate all pairwise distances
   D_full <- as.matrix(dist(X, method = "euclidean"))^2
   
-  # 各点のk近傍を見つける
+  # Find k neighbors for each point
   for (i in 1:N) {
-    # 自分自身を除外
+    # Exclude self
     d <- D_full[i, -i]
     idx <- (1:N)[-i]
     
-    # k最小値を見つける
+    # Find k minimum values
     ord <- order(d)[1:k]
     D2[i, ] <- d[ord]
     nn[i, ] <- idx[ord]
@@ -267,26 +267,26 @@ nnsqdist <- function(X, k, method = "sort") {
 
 eabounds <- function(logK, D2) {
   # In:
-  #   logK: スカラー、perplexityの対数
-  #   D2: N x k 行列、k近傍への平方距離（ソート済み）
+  #   logK: Scalar, log of perplexity
+  #   D2: N x k matrix, squared distances to k neighbors (sorted)
   # Out:
-  #   B: Nx2 行列、各データ点のlog-beta境界
-  #   D2: 入力と同じ（微小な摂動を加える場合がある）
+  #   B: Nx2 matrix, log-beta boundaries for each data point
+  #   D2: Same as input (may add small perturbations)
   
-  N <- ncol(D2)  # 近傍数
+  N <- ncol(D2)  # Number of neighbors
   logN <- log(N)
   logNK <- logN - logK
   
   delta2 <- D2[, 2] - D2[, 1]
   
-  # delta2 >= eps を保証
+  # Ensure delta2 >= eps
   ind <- which(delta2 < .Machine$double.eps)
   i <- 3
   flag <- TRUE
   
   while (length(ind) > 0 && i <= ncol(D2)) {
     if (i > exp(logK) && flag) {
-      # K個以上の最近傍が同じ距離にある点の距離を微調整
+      # Fine-tune distances for points with K or more equal-distance neighbors
       D2[ind, 1] <- D2[ind, 1] * 0.99
       flag <- FALSE
     }
@@ -297,7 +297,7 @@ eabounds <- function(logK, D2) {
   
   deltaN <- D2[, N] - D2[, 1]
   
-  # p1(N, logK)を計算
+  # Calculate p1(N, logK)
   if (logK > log(sqrt(2 * N))) {
     p1 <- 3/4
   } else {
@@ -321,7 +321,7 @@ eabounds <- function(logK, D2) {
 
 
 
-# 5. メインのEA関数
+# 5. Main EA function
 ea <- function(X, K, k = NULL) {
   N <- nrow(X)
   
@@ -341,18 +341,18 @@ ea <- function(X, K, k = NULL) {
   Wp <- matrix(0, N, k)
   logK <- log(K)
   
-  # 境界の計算
+  # Calculate boundaries
   bounds <- eabounds(logK, D2)
   B <- bounds$B
   D2 <- bounds$D2
   
-  # 点の順序（K番目の近傍への距離でソート）
+  # Point ordering (sort by distance to K-th neighbor)
   p <- order(D2[, ceiling(K)])
   j <- p[1]
   b0 <- mean(B[j, ])
   p <- c(p, 0)
   
-  # 各点のlog-betaとEAを計算
+  # Calculate log-beta and EA for each point
   for (i in 1:N) {
     result <- eabeta(D2[j, ], b0, logK, B[j, ])
     b[j] <- result$b
@@ -362,7 +362,7 @@ ea <- function(X, K, k = NULL) {
     if (j == 0) break
   }
   
-  # スパース行列の作成
+  # Create sparse matrix
   if (k >= N - 1) {
     W <- matrix(0, N, N)
     for (i in 1:N) {
@@ -379,7 +379,7 @@ ea <- function(X, K, k = NULL) {
   return(list(W = W, s = s))
 }
 
-# 6. EEエラー関数
+# 6. EE error function
 ee_error <- function(X, Wp, Wn, l) {
   sqd <- sqdist(X)
   ker <- exp(-sqd)
@@ -387,7 +387,7 @@ ee_error <- function(X, Wp, Wn, l) {
   return(list(e = e, ker = ker))
 }
 
-# 7. バックトラッキングラインサーチ
+# 7. Backtracking line search
 eels <- function(X, Wp, Wn, l, P, ff, G, alpha0 = 1, rho = 0.8, c = 1e-1) {
   alpha <- alpha0
   tmp <- c * sum(G * P)
@@ -408,34 +408,34 @@ eels <- function(X, Wp, Wn, l, P, ff, G, alpha0 = 1, rho = 0.8, c = 1e-1) {
   return(list(X = X, e = e, ker = ker, alpha = alpha))
 }
 
-# 8. メインのEE関数
+# 8. Main EE function
 ee <- function(Wp, Wn, d, l, opts = list()) {
   N <- nrow(Wp)
   
-  # デフォルトオプション（DensityPath仕様に合わせて修正）
+  # Default options (adjusted to DensityPath specification)
   if (is.null(opts$X0)) opts$X0 <- matrix(rnorm(N * d) * 1e-5, N, d)
   if (is.null(opts$pattern)) opts$pattern <- NULL
   if (is.null(opts$tol)) opts$tol <- 1e-3
-  if (is.null(opts$maxit)) opts$maxit <- Inf      # DensityPath: 制限なし
-  if (is.null(opts$runtime)) opts$runtime <- Inf   # DensityPath: 制限なし
+  if (is.null(opts$maxit)) opts$maxit <- Inf      # DensityPath: no limit
+  if (is.null(opts$runtime)) opts$runtime <- Inf   # DensityPath: no limit
   
   start_time <- Sys.time()
   
-  # 対称化とゼロ対角（既に正規化済みの前提）
+  # Symmetrize and zero diagonal (assuming already normalized)
   Wp <- (Wp + t(Wp)) / 2
   diag(Wp) <- 0
   Wn <- (Wn + t(Wn)) / 2
   diag(Wn) <- 0
   
-  # グラフラプラシアン
+  # Graph Laplacian
   Dp <- diag(rowSums(Wp))
   Lp4 <- 4 * (Dp - Wp)
   
-  # 最小の非ゼロ対角要素
+  # Minimum non-zero diagonal element
   diag_Lp4 <- diag(Lp4)
   mDiagLp <- min(diag_Lp4[diag_Lp4 > 0])
   
-  # Cholesky分解
+  # Cholesky decomposition
   if (!is.null(opts$pattern)) {
     L_reg <- opts$pattern * Lp4 + 1e-10 * mDiagLp * diag(N)
   } else {
@@ -444,7 +444,7 @@ ee <- function(Wp, Wn, d, l, opts = list()) {
   
   R <- chol(L_reg)
   
-  # 結果の保存用
+  # For storing results
   X_list <- list()
   E_list <- list()
   A_list <- list()
@@ -452,7 +452,7 @@ ee <- function(Wp, Wn, d, l, opts = list()) {
   
   Xold <- opts$X0
   
-  # 各lambda値に対して最適化（DensityPathでは単一値）
+  # Optimize for each lambda value (single value for DensityPath)
   for (i in seq_along(l)) {
     result <- ee_error(Xold, Wp, Wn, l[i])
     e <- result$e
@@ -463,16 +463,16 @@ ee <- function(Wp, Wn, d, l, opts = list()) {
     t_vec <- as.numeric(difftime(Sys.time(), start_time, units = "secs"))
     
     j <- 1
-    # DensityPath用の収束条件
+    # Convergence criteria for DensityPath
     convcrit <- (j < opts$maxit) && (t_vec[1] < opts$runtime)
     
-    # 収束情報を出力（デバッグ用）
+    # Output convergence information (for debugging)
     if (length(l) == 1 && opts$maxit == Inf) {
       cat(sprintf("Starting optimization with lambda = %g\n", l[i]))
     }
     
     while (convcrit) {
-      # 勾配計算
+      # Gradient calculation
       WWn <- l[i] * Wn * ker
       DDn <- diag(rowSums(WWn))
       G <- (Lp4 - 4 * (DDn - WWn)) %*% Xold
@@ -480,20 +480,20 @@ ee <- function(Wp, Wn, d, l, opts = list()) {
       # Spectral direction
       P <- -backsolve(R, backsolve(t(R), G))
       
-      # ラインサーチ
+      # Line search
       ls_result <- eels(Xold, Wp, Wn, l[i], P, e_vec[j], G, a_vec[j])
       X <- ls_result$X
       e_vec <- c(e_vec, ls_result$e)
       ker <- ls_result$ker
       a_vec <- c(a_vec, ls_result$alpha)
       
-      # 収束判定（DensityPath用）
+      # Convergence test (for DensityPath)
       rel_change <- norm(X - Xold, "F") / norm(Xold, "F")
       convcrit <- (j < opts$maxit) && 
                   (as.numeric(difftime(Sys.time(), start_time, units = "secs")) < opts$runtime) &&
                   (rel_change > opts$tol)
       
-      # 定期的に進捗を出力（デバッグ用）
+      # Periodically output progress (for debugging)
       if (j %% 10 == 0 && length(l) == 1) {
         cat(sprintf("  Iteration %d: error = %g, relative change = %g\n", 
                     j, e_vec[j+1], rel_change))
@@ -509,7 +509,7 @@ ee <- function(Wp, Wn, d, l, opts = list()) {
                   j-1, rel_change))
     }
     
-    # 結果の保存
+    # Save results
     if (length(l) == 1) {
       X_list <- X
       E_list <- e_vec
@@ -527,25 +527,25 @@ ee <- function(Wp, Wn, d, l, opts = list()) {
 }
 
 
-# 修正版 densitypath_ee_matlab_exact関数
+# Modified densitypath_ee_matlab_exact function
 densitypath_ee_matlab_exact <- function(seurat_obj, 
                                        d = 2,
                                        perplexity = 30,
-                                       lambda = 10,  # DensityPathのデフォルト値に変更
+                                       lambda = 10,  # Changed to DensityPath default value
                                        k_neighbors = NULL,
                                        reduction = "pca",
                                        n_dims = NULL,
                                        assay = NULL,
-                                       seed = 42,  # 新しいパラメータ
+                                       seed = 42,  # New parameter
                                        verbose = TRUE) {
   
-    # 関数の最初に追加
+    # Added at beginning of function
   if (!is.null(seed)) {
     set.seed(seed)
     if (verbose) cat(sprintf("Random seed set to: %d\n", seed))
   }
 
-  # reduction名の決定
+  # Determine reduction name
   if (!is.null(reduction)) {
     reduction_name <- paste(reduction, "EE", sep = ".")
     reduction_key <- paste0(reduction, "EE_")
@@ -563,14 +563,14 @@ densitypath_ee_matlab_exact <- function(seurat_obj,
     cat("===============================================\n\n")
   }
   
-  # Assayの自動検出
+  # Auto-detect Assay
   if (is.null(assay)) {
     assay <- DefaultAssay(seurat_obj)
   }
   
-  # データの準備
+  # Data preparation
   if (!is.null(reduction)) {
-    # reductionを使用
+    # Use reduction
     if (!reduction %in% names(seurat_obj@reductions)) {
       stop(sprintf("Reduction '%s' not found. Available: %s", 
                    reduction, 
@@ -583,13 +583,13 @@ densitypath_ee_matlab_exact <- function(seurat_obj,
     X <- reduction_embeddings[, 1:n_dims]
   }
 
-  # ★重要な修正1: DensityPath方式の正規化
-  # MATLABコード: Y = Y-min(Y(:)); Y = Y./max(Y(:));
+  # Important fix 1: DensityPath-style normalization
+  # MATLAB code: Y = Y-min(Y(:)); Y = Y./max(Y(:));
   if (verbose) cat("Normalizing data (DensityPath style)...\n")
-  X_min <- min(X)  # 全要素の最小値
-  X <- X - X_min   # 最小値を0にシフト
-  X_max <- max(X)  # シフト後の最大値
-  X <- X / X_max   # [0,1]に正規化
+  X_min <- min(X)  # Minimum value of all elements
+  X <- X - X_min   # Shift to make minimum 0
+  X_max <- max(X)  # Maximum after shift
+  X <- X / X_max   # Normalize to [0,1]
 
   N <- nrow(X)
   if (is.null(k_neighbors)) k_neighbors <- min(3 * perplexity, N - 1)
@@ -599,46 +599,46 @@ densitypath_ee_matlab_exact <- function(seurat_obj,
   ea_result <- ea(X, K = perplexity, k = k_neighbors)
   Wp <- as.matrix(ea_result$W)
   
-  # Step 2: 負の重み行列 (Wn) - 平方距離行列
+  # Step 2: Negative weight matrix (Wn) - squared distance matrix
   if (verbose) cat("Computing negative affinities from squared distances...\n")
   Wn <- sqdist(X)
   
-  # Step 3: ★重要な修正2: DensityPath方式の正規化
-  # MATLABデモコードと同じ正規化
+  # Step 3: Important fix 2: DensityPath-style normalization
+  # Same normalization as MATLAB demo code
   if (verbose) cat("Normalizing weight matrices...\n")
+
+  # Wp normalization
+  Wp <- (Wp + t(Wp)) / 2  # Symmetrize
+  diag(Wp) <- 0           # Set diagonal to 0
+  Wp <- Wp / sum(Wp)      # Normalize sum to 1
+
+  # Wn normalization
+  Wn <- (Wn + t(Wn)) / 2  # Symmetrize
+  diag(Wn) <- 0           # Set diagonal to 0
+  Wn <- Wn / sum(Wn)      # Normalize sum to 1
   
-  # Wpの正規化
-  Wp <- (Wp + t(Wp)) / 2  # 対称化
-  diag(Wp) <- 0           # 対角要素を0に
-  Wp <- Wp / sum(Wp)      # 全体の和を1に正規化
-  
-  # Wnの正規化
-  Wn <- (Wn + t(Wn)) / 2  # 対称化
-  diag(Wn) <- 0           # 対角要素を0に
-  Wn <- Wn / sum(Wn)      # 全体の和を1に正規化
-  
-  # Step 4: ★重要な修正3: 収束条件の変更
-  # DensityPathの説明: "cancel the limitation of the running time and maximum iteration"
+  # Step 4: Important fix 3: Convergence condition change
+  # DensityPath description: "cancel the limitation of the running time and maximum iteration"
   if (verbose) cat("Running Elastic Embedding optimization (no iteration limit)...\n")
   
   ee_result <- ee(Wp = Wp, 
                   Wn = Wn, 
                   d = d, 
-                  l = lambda,  # 単一のlambda値を使用
+                  l = lambda,  # Use single lambda value
                   opts = list(
-                    X0 = matrix(rnorm(N * d) * 1e-5, N, d),  # デモと同じ初期化
+                    X0 = matrix(rnorm(N * d) * 1e-5, N, d),  # Same initialization as demo
                     tol = 1e-3,
-                    maxit = Inf,      # 反復回数制限なし
-                    runtime = Inf     # 実行時間制限なし
+                    maxit = Inf,      # No iteration limit
+                    runtime = Inf     # No time limit
                   ))
   
-  # 最終的な埋め込みを取得
+  # Get final embedding
   Y <- ee_result$X
 
-# 各次元を中心化
+# Center each dimension
 Y <- scale(Y, center = TRUE, scale = FALSE)
 
-  # 結果をSeuratオブジェクトに追加
+  # Add results to Seurat object
   colnames(Y) <- paste0(reduction_key, 1:d)
   rownames(Y) <- colnames(seurat_obj)
   

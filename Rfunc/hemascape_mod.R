@@ -63,7 +63,7 @@
 HemaScape <- function(input, vars='orig.ident', sigma = 0.1, query.reduction = NULL){
   # Access the internal reference dataset
   # reference <- get("reference", envir = asNamespace("HemaScribe"))
-    # HemaScribeDataを明示的に取得
+    # Explicitly get HemaScribeData
   HemaScribeData <- HemaScribe:::HemaScribeData
   reference <- HemaScribeData$mapping_reference
 
@@ -115,13 +115,13 @@ HemaScape <- function(input, vars='orig.ident', sigma = 0.1, query.reduction = N
   colnames(EE) <- c('EE_1', 'EE_2')
   rownames(EE) <- rownames(query_donor$meta_data)
 
-  # EE embedding名の決定
+  # Determine EE embedding name
   if (!is.null(query.reduction) && grepl("harmony", query.reduction, ignore.case = TRUE)) {
-    # Harmonyが使われている場合のみHarmonyEEに変更
+    # Change to HarmonyEE only if Harmony is being used
     reduction_name <- "HarmonyEE"
     reduction_key <- "HarmonyEE_"
   } else {
-    # 基本はEE
+    # Default is EE
     reduction_name <- "EE"
     reduction_key <- "EE_"
   }
