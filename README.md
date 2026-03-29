@@ -44,6 +44,11 @@ If you use SCALA+, please cite the original SCALA paper:
 - **Spatial transcriptomics analysis** — Visium spatial feature visualization and analysis
 - **BANKSY** — spatially-aware clustering
 
+### Rewritten Modules (originally partial implementation, fully rewritten)
+- **SCENIC / pySCENIC** — complete rewrite of gene regulatory network analysis with Docker-based pySCENIC pipeline, dynamic worker/memory allocation, regulon visualization, and RSS analysis
+- **NicheNet** — fully rewritten ligand-receptor analysis with updated v2 databases
+- **Slingshot** — fully rewritten trajectory analysis with improved pseudotime visualization
+
 ### Data Integration / Batch Correction
 - **Harmony** integration
 - **Scanorama** integration
