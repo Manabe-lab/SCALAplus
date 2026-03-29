@@ -58,20 +58,6 @@ If you use SCALA+, please cite the original SCALA paper:
 - Fixed Ensembl-to-symbol conversion preserving Assay5 class with `percent.mt` recalculation
 - Fixed h5ad gene name column warning (character/factor columns only)
 
-### Performance and Stability
-- On-demand loading for rarely-used packages (faster startup)
-- Fixed scDblFinder deadlock (`MulticoreParam` to `SnowParam`)
-- Fixed CIPR `select_()` defunct error
-- Numerical sorting of cluster factor levels after `FindClusters`
-- Cairo PDF output for all PDF downloads (alpha transparency support)
-- NicheNet database references updated from v1 to v2
-
-### UI Improvements
-- Prioritize/Randomize made mutually exclusive in FeaturePlot
-- ALRA batch split guidance help text
-- Cell metadata included in SCENIC download zip
-- CellBender abort if previous output already exists
-
 ----
 
 ## License
