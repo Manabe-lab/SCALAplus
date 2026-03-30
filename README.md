@@ -32,6 +32,7 @@ If you use SCALA+, please cite the original SCALA paper:
 - **DEG analysis** (separate from marker identification)
 - **Gene Set Score** (UCell, GSDensity)
 - **Pseudobulk analysis**
+- **CellChat** cell-cell communication analysis
 - **BANKSY** spatially-aware clustering
 - **Harmony / Scanorama / FastMNN / SCTransform** batch correction
 - Seurat v5 `IntegrateLayers` (CCA, RPCA, Joint PCA)
