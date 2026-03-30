@@ -22,64 +22,30 @@ If you use SCALA+, please cite the original SCALA paper:
 
 ## New Modules (not in original SCALA)
 
-### Data Input
-- **h5ad (AnnData) file import** with flexible slot mapping (X, raw.X, layers)
-- **CellBender h5 file import** with ambient RNA removal quality metrics
-- **qs/qs2 format support** for fast serialized Seurat objects
-- **Visium spatial transcriptomics** data import
-- **Multiple RDS/qs merge** for multi-sample integration
-- **COMPASS data** loading support
+- **h5ad (AnnData) / CellBender h5 / qs/qs2** file import
+- **Visium spatial transcriptomics** data import and analysis
+- **Sample demultiplexing** (hashDemux, demuxmix, deMULTIplex2)
+- **DropletQC** (emptyDrops)
+- **CellBender remove-background**
+- **Velocyto** RNA velocity
+- **scDblFinder** doublet detection
+- **DEG analysis** (separate from marker identification)
+- **Gene Set Score** (UCell, GSDensity)
+- **Pseudobulk analysis**
+- **BANKSY** spatially-aware clustering
+- **Harmony / Scanorama / FastMNN / SCTransform** batch correction
+- Seurat v5 `IntegrateLayers` (CCA, RPCA, Joint PCA)
+- Leiden clustering (replacing Louvain)
 
-### Preprocessing
-- **Sample demultiplexing** — hashDemux, demuxmix, deMULTIplex2 with consensus calling, UpSet/alluvial plots, and diagnostic visualizations (completely new module)
-- **DropletQC** — empty droplet detection via `emptyDrops` and damaged cell filtering (new QC tab)
-- **CellBender remove-background** — ambient RNA contamination removal with `cell_probability` and `background_fraction` metadata
-- **Velocyto** — spliced/unspliced count matrix generation from BAM files for RNA velocity analysis
-- **scDblFinder** doublet detection (in addition to original DoubletFinder)
+## Rewritten Modules
 
-### Analysis
-- **DEG analysis** — dedicated differential expression module (separate from marker identification)
-- **Gene Set Score** — gene set scoring with UCell and **GSDensity** pathway analysis
-- **Pseudobulk analysis** — aggregation and differential expression at pseudobulk level
-- **Spatial transcriptomics analysis** — Visium spatial feature visualization and analysis
-- **BANKSY** — spatially-aware clustering
+- **SCENIC / pySCENIC** — fully rewritten gene regulatory network analysis
+- **NicheNet** — fully rewritten ligand-receptor analysis (v2 databases)
+- **Slingshot** — fully rewritten trajectory analysis
 
-### Rewritten Modules (originally partial implementation, fully rewritten)
-- **SCENIC / pySCENIC** — complete rewrite of gene regulatory network analysis with Docker-based pySCENIC pipeline, dynamic worker/memory allocation, regulon visualization, and RSS analysis
-- **NicheNet** — fully rewritten ligand-receptor analysis with updated v2 databases
-- **Slingshot** — fully rewritten trajectory analysis with improved pseudotime visualization
+## Seurat v5 Compatibility
 
-### Data Integration / Batch Correction
-- **Harmony** integration
-- **Scanorama** integration
-- **FastMNN** integration
-- **SCTransform** normalization
-- Seurat v5 `IntegrateLayers` API (CCA, RPCA, Joint PCA)
-- Leiden clustering (replacing Louvain, `algorithm=4`)
-
-----
-
-## Enhancements to Existing SCALA Modules
-
-### Seurat v5 Compatibility
-- Full Seurat v5 (Assay5) support across all data loading, gene name handling, and slot access
-- Assay version (v4/v5) selection in data input panels
-- Patched `Rmagic::magic.Seurat` for SeuratObject v5
-
-### Visualization
-- **UMAP cluster highlight** with configurable fill/border opacity and draw-order control
-- **"Use UMAP colors"** option for VlnPlot, Stacked VlnPlot, and Heatmaps
-- **Polychrome** alphabet palette (26 distinct colors) and **Palo** color optimization
-
-### Data Loading
-- Cellranger annotate results loader in metadata tab
-- Auto-merge for multiple prefixed 10X files in folder upload
-- Ensembl-to-symbol gene name conversion with Assay5 compatibility
-- Gene name duplicate aggregation
-
-### Other
-- NicheNet database updated from v1 to v2
-- Cairo PDF output for alpha transparency support
+- Full Seurat v5 (Assay5) support across all modules
 
 ----
 
